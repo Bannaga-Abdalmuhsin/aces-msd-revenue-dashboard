@@ -12,4 +12,12 @@ project?: string;
  * @nullable
  */
 revenueYear?: number | null;
+/**
+ * Start of date range YYYY-MM
+ */
+dateFrom?: string;
+/**
+ * End of date range YYYY-MM
+ */
+dateTo?: string;
 };

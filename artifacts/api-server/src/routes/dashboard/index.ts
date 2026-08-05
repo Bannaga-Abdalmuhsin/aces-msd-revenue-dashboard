@@ -106,6 +106,8 @@ function buildBaseConditions(params: {
   project?: string | null;
   revenueYear?: number | null;
   revenueMonth?: number | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
 }) {
   const conditions = [];
   if (params.project) conditions.push(like(revenueRecordsTable.projectName, `%${params.project}%`));
@@ -114,6 +116,16 @@ function buildBaseConditions(params: {
   }
   if (params.revenueMonth) {
     conditions.push(sql`EXTRACT(MONTH FROM ${revenueRecordsTable.revenueMonth}::date) = ${params.revenueMonth}`);
+  }
+  // dateFrom / dateTo override year/month when provided (YYYY-MM format)
+  if (params.dateFrom) {
+    const from = `${params.dateFrom}-01`;
+    conditions.push(sql`${revenueRecordsTable.revenueMonth}::date >= ${from}::date`);
+  }
+  if (params.dateTo) {
+    // last day of the given month
+    const to = `${params.dateTo}-01`;
+    conditions.push(sql`${revenueRecordsTable.revenueMonth}::date <= (DATE_TRUNC('month', ${to}::date) + INTERVAL '1 month - 1 day')::date`);
   }
   return conditions;
 }

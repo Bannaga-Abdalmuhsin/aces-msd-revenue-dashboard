@@ -430,6 +430,8 @@ export const GetDashboardSummaryQueryParams = zod.object({
   "project": zod.coerce.string().optional(),
   "revenueYear": zod.coerce.number().nullish(),
   "revenueMonth": zod.coerce.number().nullish(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional(),
   "projectStatus": zod.coerce.string().optional()
 })
 
@@ -458,7 +460,9 @@ export const GetDashboardSummaryResponse = zod.object({
  */
 export const GetMonthlyTrendQueryParams = zod.object({
   "project": zod.coerce.string().optional(),
-  "revenueYear": zod.coerce.number().nullish()
+  "revenueYear": zod.coerce.number().nullish(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional()
 })
 
 export const GetMonthlyTrendResponseItem = zod.object({
@@ -477,7 +481,9 @@ export const GetMonthlyTrendResponse = zod.array(GetMonthlyTrendResponseItem)
  * @summary Get project performance data for charts
  */
 export const GetProjectPerformanceQueryParams = zod.object({
-  "revenueYear": zod.coerce.number().nullish()
+  "revenueYear": zod.coerce.number().nullish(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional()
 })
 
 export const GetProjectPerformanceResponseItem = zod.object({

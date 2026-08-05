@@ -338,19 +338,27 @@ export default function Dashboard() {
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
+  // Date range takes precedence over year/month when set
+  const usingDateRange = !!(dateFrom || dateTo);
   const queryParams = {
     project: selectedProject || undefined,
-    revenueYear: selectedYear ? Number(selectedYear) : undefined,
-    revenueMonth: selectedMonth ? Number(selectedMonth) : undefined,
+    revenueYear: !usingDateRange && selectedYear ? Number(selectedYear) : undefined,
+    revenueMonth: !usingDateRange && selectedMonth ? Number(selectedMonth) : undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
   };
 
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary(queryParams);
   const { data: monthly, isLoading: monthlyLoading } = useGetMonthlyTrend(queryParams);
-  const { data: performance, isLoading: perfLoading } = useGetProjectPerformance(
-    selectedYear ? { revenueYear: Number(selectedYear) } : {}
-  );
+  const { data: performance, isLoading: perfLoading } = useGetProjectPerformance({
+    revenueYear: !usingDateRange && selectedYear ? Number(selectedYear) : undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+  });
   const { data: projects, isLoading: projectsLoading } = useListProjects();
 
   // Derive years from projects
@@ -373,7 +381,13 @@ export default function Dashboard() {
     { val: '10', label: 'October' }, { val: '11', label: 'November' }, { val: '12', label: 'December' },
   ];
 
-  const reset = () => { setSelectedProject(''); setSelectedYear(''); setSelectedMonth(''); };
+  const reset = () => {
+    setSelectedProject('');
+    setSelectedYear('');
+    setSelectedMonth('');
+    setDateFrom('');
+    setDateTo('');
+  };
 
   // Collection donut data
   const donutData = summary ? [
@@ -388,11 +402,15 @@ export default function Dashboard() {
     : 'N/A';
 
   // Reporting period label
-  const reportingPeriod = selectedMonth && selectedYear
-    ? `${months.find(m => m.val === selectedMonth)?.label} ${selectedYear}`
-    : selectedYear
-      ? `FY ${selectedYear}`
-      : 'All Time';
+  const reportingPeriod = usingDateRange
+    ? `${dateFrom || '…'} → ${dateTo || '…'}`
+    : selectedMonth && selectedYear
+      ? `${months.find(m => m.val === selectedMonth)?.label} ${selectedYear}`
+      : selectedYear
+        ? `FY ${selectedYear}`
+        : 'All Time';
+
+  const hasFilters = !!(selectedProject || selectedYear || selectedMonth || dateFrom || dateTo);
 
   const selectCls = "text-xs border border-gray-300 rounded-md px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 min-w-[140px]";
 
@@ -434,21 +452,75 @@ export default function Dashboard() {
       <div className="border-b border-gray-200 bg-white px-6 py-3">
         <div className="max-w-screen-2xl mx-auto flex items-center gap-3 flex-wrap">
           <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Filters:</span>
+
+          {/* Project */}
           <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)} className={selectCls}>
             <option value="">All Projects</option>
             {(projects ?? []).map(p => <option key={p.id} value={p.name}>{shortName(p.name)}</option>)}
           </select>
-          <select value={selectedYear} onChange={e => { setSelectedYear(e.target.value); if (!e.target.value) setSelectedMonth(''); }} className={selectCls}>
+
+          {/* Divider */}
+          <div className="h-5 w-px bg-gray-300 hidden sm:block" />
+
+          {/* Year + Month (disabled when date range is active) */}
+          <select
+            value={selectedYear}
+            onChange={e => { setSelectedYear(e.target.value); if (!e.target.value) setSelectedMonth(''); }}
+            disabled={usingDateRange}
+            className={selectCls + (usingDateRange ? ' opacity-40 cursor-not-allowed' : '')}
+            title={usingDateRange ? 'Clear date range to use Year/Month filters' : undefined}
+          >
             <option value="">All Years</option>
             {availableYears.map(y => <option key={y} value={String(y)}>{y}</option>)}
           </select>
-          <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} disabled={!selectedYear} className={selectCls + (selectedYear ? '' : ' opacity-50 cursor-not-allowed')}>
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            disabled={!selectedYear || usingDateRange}
+            className={selectCls + (!selectedYear || usingDateRange ? ' opacity-40 cursor-not-allowed' : '')}
+            title={usingDateRange ? 'Clear date range to use Year/Month filters' : undefined}
+          >
             <option value="">All Months</option>
             {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
           </select>
-          {(selectedProject || selectedYear || selectedMonth) && (
-            <button onClick={reset} className="text-xs px-3 py-1.5 rounded-md border border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors">
-              Reset Filters ✕
+
+          {/* Divider */}
+          <div className="h-5 w-px bg-gray-300 hidden sm:block" />
+
+          {/* Date range (YYYY-MM month inputs) */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-400 font-medium">From</span>
+            <input
+              type="month"
+              value={dateFrom}
+              onChange={e => {
+                setDateFrom(e.target.value);
+                // Clear Year/Month when range is set
+                if (e.target.value) { setSelectedYear(''); setSelectedMonth(''); }
+              }}
+              max={dateTo || undefined}
+              className={selectCls + ' px-2'}
+              style={{ minWidth: 140 }}
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-400 font-medium">To</span>
+            <input
+              type="month"
+              value={dateTo}
+              onChange={e => {
+                setDateTo(e.target.value);
+                if (e.target.value) { setSelectedYear(''); setSelectedMonth(''); }
+              }}
+              min={dateFrom || undefined}
+              className={selectCls + ' px-2'}
+              style={{ minWidth: 140 }}
+            />
+          </div>
+
+          {hasFilters && (
+            <button onClick={reset} className="text-xs px-3 py-1.5 rounded-md border border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors flex items-center gap-1">
+              Reset <span className="font-bold">✕</span>
             </button>
           )}
         </div>

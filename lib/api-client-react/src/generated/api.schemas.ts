@@ -457,6 +457,14 @@ revenueYear?: number | null;
  * @nullable
  */
 revenueMonth?: number | null;
+/**
+ * Start of date range YYYY-MM
+ */
+dateFrom?: string;
+/**
+ * End of date range YYYY-MM
+ */
+dateTo?: string;
 projectStatus?: string;
 };
 
@@ -466,6 +474,14 @@ project?: string;
  * @nullable
  */
 revenueYear?: number | null;
+/**
+ * Start of date range YYYY-MM
+ */
+dateFrom?: string;
+/**
+ * End of date range YYYY-MM
+ */
+dateTo?: string;
 };
 
 export type GetProjectPerformanceParams = {
@@ -473,6 +489,14 @@ export type GetProjectPerformanceParams = {
  * @nullable
  */
 revenueYear?: number | null;
+/**
+ * Start of date range YYYY-MM
+ */
+dateFrom?: string;
+/**
+ * End of date range YYYY-MM
+ */
+dateTo?: string;
 };
 
 export type GetAgingReportParams = {
