@@ -60,6 +60,15 @@ export const ListRecordsResponse = zod.object({
   "outstandingAgeDays": zod.number().nullish(),
   "deductibleVariance": zod.number().nullish(),
   "netRevenueVariance": zod.number().nullish(),
+  "retentionApplicable": zod.boolean().optional(),
+  "releasePercentage": zod.number().optional(),
+  "initialReleaseAmount": zod.number().optional(),
+  "retainedAmount": zod.number().optional(),
+  "retentionStatus": zod.string().nullish().describe('Withheld | Eligible for Release | Invoiced | Collected'),
+  "pendingRetention": zod.number().optional(),
+  "bodStatus": zod.string().nullish().describe('Pending | Submitted | Approved | Signed'),
+  "bodCompletionDate": zod.string().nullish(),
+  "retentionReleaseDate": zod.string().nullish(),
   "isDemo": zod.boolean(),
   "createdAt": zod.string().optional(),
   "updatedAt": zod.string().optional()
@@ -88,6 +97,9 @@ export const CreateRecordBody = zod.object({
   "days": zod.number().nullish(),
   "penalties": zod.number().optional(),
   "netRevenue": zod.number().optional(),
+  "bodStatus": zod.string().nullish(),
+  "bodCompletionDate": zod.string().nullish(),
+  "retentionReleaseDate": zod.string().nullish(),
   "isDemo": zod.boolean().optional()
 })
 
@@ -114,6 +126,15 @@ export const CreateRecordResponse = zod.object({
   "outstandingAgeDays": zod.number().nullish(),
   "deductibleVariance": zod.number().nullish(),
   "netRevenueVariance": zod.number().nullish(),
+  "retentionApplicable": zod.boolean().optional(),
+  "releasePercentage": zod.number().optional(),
+  "initialReleaseAmount": zod.number().optional(),
+  "retainedAmount": zod.number().optional(),
+  "retentionStatus": zod.string().nullish().describe('Withheld | Eligible for Release | Invoiced | Collected'),
+  "pendingRetention": zod.number().optional(),
+  "bodStatus": zod.string().nullish().describe('Pending | Submitted | Approved | Signed'),
+  "bodCompletionDate": zod.string().nullish(),
+  "retentionReleaseDate": zod.string().nullish(),
   "isDemo": zod.boolean(),
   "createdAt": zod.string().optional(),
   "updatedAt": zod.string().optional()
@@ -139,6 +160,9 @@ export const ImportRecordsBody = zod.object({
   "days": zod.number().nullish(),
   "penalties": zod.number().optional(),
   "netRevenue": zod.number().optional(),
+  "bodStatus": zod.string().nullish(),
+  "bodCompletionDate": zod.string().nullish(),
+  "retentionReleaseDate": zod.string().nullish(),
   "isDemo": zod.boolean().optional()
 })),
   "allowDuplicateInvoices": zod.boolean().optional()
@@ -187,6 +211,15 @@ export const GetRecordResponse = zod.object({
   "outstandingAgeDays": zod.number().nullish(),
   "deductibleVariance": zod.number().nullish(),
   "netRevenueVariance": zod.number().nullish(),
+  "retentionApplicable": zod.boolean().optional(),
+  "releasePercentage": zod.number().optional(),
+  "initialReleaseAmount": zod.number().optional(),
+  "retainedAmount": zod.number().optional(),
+  "retentionStatus": zod.string().nullish().describe('Withheld | Eligible for Release | Invoiced | Collected'),
+  "pendingRetention": zod.number().optional(),
+  "bodStatus": zod.string().nullish().describe('Pending | Submitted | Approved | Signed'),
+  "bodCompletionDate": zod.string().nullish(),
+  "retentionReleaseDate": zod.string().nullish(),
   "isDemo": zod.boolean(),
   "createdAt": zod.string().optional(),
   "updatedAt": zod.string().optional()
@@ -214,7 +247,10 @@ export const UpdateRecordBody = zod.object({
   "collectedDate": zod.string().nullish(),
   "days": zod.number().nullish(),
   "penalties": zod.number().optional(),
-  "netRevenue": zod.number().optional()
+  "netRevenue": zod.number().optional(),
+  "bodStatus": zod.string().nullish(),
+  "bodCompletionDate": zod.string().nullish(),
+  "retentionReleaseDate": zod.string().nullish()
 })
 
 export const UpdateRecordResponse = zod.object({
@@ -240,6 +276,15 @@ export const UpdateRecordResponse = zod.object({
   "outstandingAgeDays": zod.number().nullish(),
   "deductibleVariance": zod.number().nullish(),
   "netRevenueVariance": zod.number().nullish(),
+  "retentionApplicable": zod.boolean().optional(),
+  "releasePercentage": zod.number().optional(),
+  "initialReleaseAmount": zod.number().optional(),
+  "retainedAmount": zod.number().optional(),
+  "retentionStatus": zod.string().nullish().describe('Withheld | Eligible for Release | Invoiced | Collected'),
+  "pendingRetention": zod.number().optional(),
+  "bodStatus": zod.string().nullish().describe('Pending | Submitted | Approved | Signed'),
+  "bodCompletionDate": zod.string().nullish(),
+  "retentionReleaseDate": zod.string().nullish(),
   "isDemo": zod.boolean(),
   "createdAt": zod.string().optional(),
   "updatedAt": zod.string().optional()
@@ -265,6 +310,8 @@ export const ListProjectsResponseItem = zod.object({
   "status": zod.string(),
   "contractStart": zod.string().nullish(),
   "contractEnd": zod.string().nullish(),
+  "retentionApplicable": zod.boolean().optional(),
+  "releasePercentage": zod.number().optional(),
   "totalWorkOrder": zod.number(),
   "totalRevenue": zod.number(),
   "totalDeductible": zod.number(),
@@ -274,6 +321,8 @@ export const ListProjectsResponseItem = zod.object({
   "totalOverdue": zod.number(),
   "totalPenalties": zod.number(),
   "totalNetRevenue": zod.number(),
+  "totalRetained": zod.number().optional(),
+  "totalPendingRetention": zod.number().optional(),
   "revenueAchievementPct": zod.number(),
   "collectionPct": zod.number(),
   "avgCollectionDays": zod.number(),
@@ -290,7 +339,9 @@ export const CreateProjectBody = zod.object({
   "name": zod.string(),
   "status": zod.enum(['ongoing', 'completed', 'closed']),
   "contractStart": zod.string().nullish(),
-  "contractEnd": zod.string().nullish()
+  "contractEnd": zod.string().nullish(),
+  "retentionApplicable": zod.boolean().optional(),
+  "releasePercentage": zod.number().optional()
 })
 
 export const CreateProjectResponse = zod.object({
@@ -299,6 +350,8 @@ export const CreateProjectResponse = zod.object({
   "status": zod.enum(['ongoing', 'completed', 'closed']),
   "contractStart": zod.string().nullish(),
   "contractEnd": zod.string().nullish(),
+  "retentionApplicable": zod.boolean().optional(),
+  "releasePercentage": zod.number().optional(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -318,6 +371,8 @@ export const GetProjectResponse = zod.object({
   "status": zod.string(),
   "contractStart": zod.string().nullish(),
   "contractEnd": zod.string().nullish(),
+  "retentionApplicable": zod.boolean().optional(),
+  "releasePercentage": zod.number().optional(),
   "totalWorkOrder": zod.number(),
   "totalRevenue": zod.number(),
   "totalDeductible": zod.number(),
@@ -327,6 +382,8 @@ export const GetProjectResponse = zod.object({
   "totalOverdue": zod.number(),
   "totalPenalties": zod.number(),
   "totalNetRevenue": zod.number(),
+  "totalRetained": zod.number().optional(),
+  "totalPendingRetention": zod.number().optional(),
   "revenueAchievementPct": zod.number(),
   "collectionPct": zod.number(),
   "avgCollectionDays": zod.number(),
@@ -364,6 +421,15 @@ export const GetProjectResponse = zod.object({
   "outstandingAgeDays": zod.number().nullish(),
   "deductibleVariance": zod.number().nullish(),
   "netRevenueVariance": zod.number().nullish(),
+  "retentionApplicable": zod.boolean().optional(),
+  "releasePercentage": zod.number().optional(),
+  "initialReleaseAmount": zod.number().optional(),
+  "retainedAmount": zod.number().optional(),
+  "retentionStatus": zod.string().nullish().describe('Withheld | Eligible for Release | Invoiced | Collected'),
+  "pendingRetention": zod.number().optional(),
+  "bodStatus": zod.string().nullish().describe('Pending | Submitted | Approved | Signed'),
+  "bodCompletionDate": zod.string().nullish(),
+  "retentionReleaseDate": zod.string().nullish(),
   "isDemo": zod.boolean(),
   "createdAt": zod.string().optional(),
   "updatedAt": zod.string().optional()
@@ -382,7 +448,9 @@ export const UpdateProjectBody = zod.object({
   "name": zod.string().optional(),
   "status": zod.enum(['ongoing', 'completed', 'closed']).optional(),
   "contractStart": zod.string().nullish(),
-  "contractEnd": zod.string().nullish()
+  "contractEnd": zod.string().nullish(),
+  "retentionApplicable": zod.boolean().optional(),
+  "releasePercentage": zod.number().optional()
 })
 
 export const UpdateProjectResponse = zod.object({
@@ -391,6 +459,8 @@ export const UpdateProjectResponse = zod.object({
   "status": zod.enum(['ongoing', 'completed', 'closed']),
   "contractStart": zod.string().nullish(),
   "contractEnd": zod.string().nullish(),
+  "retentionApplicable": zod.boolean().optional(),
+  "releasePercentage": zod.number().optional(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -426,6 +496,7 @@ export const GetDashboardSummaryResponse = zod.object({
   "totalOverdue": zod.number(),
   "totalPenalties": zod.number(),
   "totalNetRevenue": zod.number(),
+  "totalPendingRetention": zod.number(),
   "collectionRate": zod.number(),
   "revenueAchievementRate": zod.number(),
   "invoiceConversionRate": zod.number(),

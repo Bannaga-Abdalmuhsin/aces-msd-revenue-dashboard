@@ -12,11 +12,11 @@ import {
   ClearDemoDataResponse,
 } from "@workspace/api-zod";
 import { enrichRecord, toNum } from "../../lib/businessLogic";
+import { loadRetentionMap, getRetention } from "../../lib/retentionCache";
 import { logAudit } from "../../lib/audit";
 
 const router: IRouter = Router();
 
-// Helper to build filter conditions
 function buildFilters(params: Record<string, unknown>) {
   const conditions = [];
   if (params.project && typeof params.project === "string") {
@@ -35,9 +35,7 @@ function buildFilters(params: Record<string, unknown>) {
     );
   }
   if (params.invoiceNo && typeof params.invoiceNo === "string") {
-    conditions.push(
-      like(revenueRecordsTable.invoiceNo, `%${params.invoiceNo}%`),
-    );
+    conditions.push(like(revenueRecordsTable.invoiceNo, `%${params.invoiceNo}%`));
   }
   if (params.dateFrom && typeof params.dateFrom === "string") {
     conditions.push(gte(revenueRecordsTable.revenueMonth, params.dateFrom));
@@ -59,12 +57,10 @@ router.get("/records", async (req, res): Promise<void> => {
   const page = q.page ?? 1;
   const pageSize = q.pageSize ?? 50;
   const offset = (page - 1) * pageSize;
-
   const conditions = buildFilters(q as Record<string, unknown>);
-
   const today = new Date();
 
-  const [allRows, countResult] = await Promise.all([
+  const [allRows, countResult, retentionMap] = await Promise.all([
     db
       .select()
       .from(revenueRecordsTable)
@@ -76,15 +72,16 @@ router.get("/records", async (req, res): Promise<void> => {
       .select({ count: sql<number>`count(*)::int` })
       .from(revenueRecordsTable)
       .where(conditions.length ? and(...conditions) : undefined),
+    loadRetentionMap(),
   ]);
 
-  let records = allRows.map((r) => enrichRecord(r, today));
+  let records = allRows.map((r) =>
+    enrichRecord(r, today, getRetention(retentionMap, r.projectId)),
+  );
 
-  // Filter by invoice status after enrichment
   if (q.invoiceStatus) {
     records = records.filter((r) => r.paymentStatus === q.invoiceStatus);
   }
-  // Filter by overdue
   if (q.overdue != null) {
     if (q.overdue) {
       records = records.filter((r) => r.overdueAmount > 0);
@@ -110,7 +107,6 @@ router.post("/records", async (req, res): Promise<void> => {
   }
   const data = parsed.data;
 
-  // Resolve projectId from projectName
   let projectId: number | null = null;
   const existing = await db
     .select({ id: projectsTable.id })
@@ -145,12 +141,16 @@ router.post("/records", async (req, res): Promise<void> => {
       days: data.days ?? null,
       penalties: String(data.penalties ?? 0),
       netRevenue: String(data.netRevenue ?? 0),
+      bodStatus: (data as any).bodStatus ?? null,
+      bodCompletionDate: (data as any).bodCompletionDate ?? null,
+      retentionReleaseDate: (data as any).retentionReleaseDate ?? null,
       isDemo: data.isDemo ?? false,
     })
     .returning();
 
+  const retentionMap = await loadRetentionMap();
   await logAudit("create", "revenue_records", record.id, null, record);
-  res.status(201).json(enrichRecord(record));
+  res.status(201).json(enrichRecord(record, new Date(), getRetention(retentionMap, record.projectId)));
 });
 
 // DELETE /records/demo/clear — must be before /:id
@@ -160,10 +160,7 @@ router.delete("/records/demo/clear", async (_req, res): Promise<void> => {
     .where(eq(revenueRecordsTable.isDemo, true))
     .returning({ id: revenueRecordsTable.id });
 
-  await logAudit("clear_demo", "revenue_records", null, null, {
-    deleted: result.length,
-  });
-
+  await logAudit("clear_demo", "revenue_records", null, null, { deleted: result.length });
   const response = ClearDemoDataResponse.parse({ deleted: result.length });
   res.json(response);
 });
@@ -181,7 +178,6 @@ router.post("/records/import", async (req, res): Promise<void> => {
   let imported = 0;
   let skipped = 0;
 
-  // Pre-fetch existing invoice numbers
   const existingInvoices = await db
     .select({ invoiceNo: revenueRecordsTable.invoiceNo })
     .from(revenueRecordsTable)
@@ -190,7 +186,6 @@ router.post("/records/import", async (req, res): Promise<void> => {
     existingInvoices.map((r) => r.invoiceNo).filter(Boolean) as string[],
   );
 
-  // Build project map
   const projectRows = await db.select().from(projectsTable);
   const projectMap = new Map(projectRows.map((p) => [p.name, p.id]));
 
@@ -198,19 +193,12 @@ router.post("/records/import", async (req, res): Promise<void> => {
     const rec = records[i];
     const rowNum = i + 1;
 
-    // Duplicate invoice check
     if (rec.invoiceNo && existingInvoiceNos.has(rec.invoiceNo) && !allowDuplicateInvoices) {
-      warnings.push({
-        row: rowNum,
-        field: "invoiceNo",
-        message: `Duplicate invoice number: ${rec.invoiceNo}`,
-        severity: "warning",
-      });
+      warnings.push({ row: rowNum, field: "invoiceNo", message: `Duplicate invoice number: ${rec.invoiceNo}`, severity: "warning" });
       skipped++;
       continue;
     }
 
-    // Resolve project
     let projectId = rec.projectName ? projectMap.get(rec.projectName) ?? null : null;
     if (rec.projectName && !projectId) {
       const [newProj] = await db
@@ -221,18 +209,12 @@ router.post("/records/import", async (req, res): Promise<void> => {
       if (projectId) projectMap.set(rec.projectName, projectId);
     }
 
-    // Deductible variance warning
     const workOrder = rec.workOrder ?? 0;
     const revenue = rec.revenue ?? 0;
     const deductible = rec.deductible ?? 0;
     const calculatedDeductible = workOrder - revenue;
     if (Math.abs(deductible - calculatedDeductible) > workOrder * 0.05 && workOrder > 0) {
-      warnings.push({
-        row: rowNum,
-        field: "deductible",
-        message: `Imported deductible (${deductible.toFixed(2)}) differs materially from Work Order − Revenue (${calculatedDeductible.toFixed(2)})`,
-        severity: "warning",
-      });
+      warnings.push({ row: rowNum, field: "deductible", message: `Imported deductible (${deductible.toFixed(2)}) differs materially from Work Order − Revenue (${calculatedDeductible.toFixed(2)})`, severity: "warning" });
     }
 
     try {
@@ -254,10 +236,12 @@ router.post("/records/import", async (req, res): Promise<void> => {
           days: rec.days ?? null,
           penalties: String(rec.penalties ?? 0),
           netRevenue: String(rec.netRevenue ?? 0),
+          bodStatus: (rec as any).bodStatus ?? null,
+          bodCompletionDate: (rec as any).bodCompletionDate ?? null,
+          retentionReleaseDate: (rec as any).retentionReleaseDate ?? null,
           isDemo: rec.isDemo ?? false,
         })
         .returning();
-
       if (rec.invoiceNo) existingInvoiceNos.add(rec.invoiceNo);
       imported++;
     } catch (err: unknown) {
@@ -267,11 +251,7 @@ router.post("/records/import", async (req, res): Promise<void> => {
     }
   }
 
-  await logAudit("import", "revenue_records", null, null, {
-    imported,
-    skipped,
-  });
-
+  await logAudit("import", "revenue_records", null, null, { imported, skipped });
   res.json({ imported, skipped, warnings, errors });
 });
 
@@ -291,7 +271,8 @@ router.get("/records/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Record not found" });
     return;
   }
-  res.json(enrichRecord(record));
+  const retentionMap = await loadRetentionMap();
+  res.json(enrichRecord(record, new Date(), getRetention(retentionMap, record.projectId)));
 });
 
 // PATCH /records/:id
@@ -318,7 +299,7 @@ router.patch("/records/:id", async (req, res): Promise<void> => {
   }
 
   const updates: Partial<typeof revenueRecordsTable.$inferInsert> = {};
-  const b = body.data;
+  const b = body.data as any;
   if (b.projectName != null) updates.projectName = b.projectName;
   if (b.revenueMonth != null) updates.revenueMonth = b.revenueMonth;
   if (b.workOrder != null) updates.workOrder = String(b.workOrder);
@@ -333,6 +314,9 @@ router.patch("/records/:id", async (req, res): Promise<void> => {
   if ("days" in b) updates.days = b.days ?? null;
   if (b.penalties != null) updates.penalties = String(b.penalties);
   if (b.netRevenue != null) updates.netRevenue = String(b.netRevenue);
+  if ("bodStatus" in b) updates.bodStatus = b.bodStatus ?? null;
+  if ("bodCompletionDate" in b) updates.bodCompletionDate = b.bodCompletionDate ?? null;
+  if ("retentionReleaseDate" in b) updates.retentionReleaseDate = b.retentionReleaseDate ?? null;
 
   const [updated] = await db
     .update(revenueRecordsTable)
@@ -340,8 +324,9 @@ router.patch("/records/:id", async (req, res): Promise<void> => {
     .where(eq(revenueRecordsTable.id, params.data.id))
     .returning();
 
+  const retentionMap = await loadRetentionMap();
   await logAudit("update", "revenue_records", params.data.id, existing, updated);
-  res.json(enrichRecord(updated));
+  res.json(enrichRecord(updated, new Date(), getRetention(retentionMap, updated.projectId)));
 });
 
 // DELETE /records/:id

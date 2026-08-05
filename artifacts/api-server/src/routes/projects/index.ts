@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, desc, and, max } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import { db, projectsTable, revenueRecordsTable } from "@workspace/db";
 import {
   CreateProjectBody,
@@ -8,14 +8,20 @@ import {
   UpdateProjectBody,
   DeleteProjectParams,
 } from "@workspace/api-zod";
-import { enrichRecord, toNum, computeOutstanding, computeOverdue, safeDiv } from "../../lib/businessLogic";
+import {
+  toNum,
+  safeDiv,
+  enrichRecord,
+  computeOutstanding,
+  computeOverdue,
+} from "../../lib/businessLogic";
+import { loadRetentionMap, getRetention } from "../../lib/retentionCache";
 import { logAudit } from "../../lib/audit";
 
 const router: IRouter = Router();
 
-async function buildProjectSummaries(projectId?: number) {
+async function buildProjectSummaries(filterProjectId?: number) {
   const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
 
   const rows = await db
     .select({
@@ -24,48 +30,54 @@ async function buildProjectSummaries(projectId?: number) {
       status: projectsTable.status,
       contractStart: projectsTable.contractStart,
       contractEnd: projectsTable.contractEnd,
-      totalWorkOrder: sql<string>`SUM(${revenueRecordsTable.workOrder}::numeric)`,
-      totalRevenue: sql<string>`SUM(${revenueRecordsTable.revenue}::numeric)`,
-      totalDeductible: sql<string>`SUM(${revenueRecordsTable.deductible}::numeric)`,
-      totalInvoiced: sql<string>`SUM(${revenueRecordsTable.invoiced}::numeric)`,
-      totalCollected: sql<string>`SUM(${revenueRecordsTable.collected}::numeric)`,
-      totalPenalties: sql<string>`SUM(${revenueRecordsTable.penalties}::numeric)`,
-      totalNetRevenue: sql<string>`SUM(${revenueRecordsTable.netRevenue}::numeric)`,
+      retentionApplicable: projectsTable.retentionApplicable,
+      releasePercentage: projectsTable.releasePercentage,
+      totalWorkOrder: sql<string>`COALESCE(SUM(${revenueRecordsTable.workOrder}::numeric), 0)`,
+      totalRevenue: sql<string>`COALESCE(SUM(${revenueRecordsTable.revenue}::numeric), 0)`,
+      totalDeductible: sql<string>`COALESCE(SUM(${revenueRecordsTable.deductible}::numeric), 0)`,
+      totalInvoiced: sql<string>`COALESCE(SUM(${revenueRecordsTable.invoiced}::numeric), 0)`,
+      totalCollected: sql<string>`COALESCE(SUM(${revenueRecordsTable.collected}::numeric), 0)`,
+      totalPenalties: sql<string>`COALESCE(SUM(${revenueRecordsTable.penalties}::numeric), 0)`,
+      totalNetRevenue: sql<string>`COALESCE(SUM(${revenueRecordsTable.netRevenue}::numeric), 0)`,
       latestRevenueMonth: sql<string | null>`MAX(${revenueRecordsTable.revenueMonth})`,
       latestInvoiceDate: sql<string | null>`MAX(${revenueRecordsTable.invoiceDate})`,
       avgDays: sql<string | null>`AVG(CASE WHEN ${revenueRecordsTable.days} IS NOT NULL AND ${revenueRecordsTable.collected}::numeric > 0 THEN ${revenueRecordsTable.days} END)`,
-      // Outstanding: SUM of max(invoiced - collected, 0) - computed in JS since it's complex
-      totalInvoicedSum: sql<string>`SUM(${revenueRecordsTable.invoiced}::numeric)`,
-      totalCollectedSum: sql<string>`SUM(${revenueRecordsTable.collected}::numeric)`,
     })
     .from(projectsTable)
-    .leftJoin(
-      revenueRecordsTable,
-      eq(revenueRecordsTable.projectId, projectsTable.id),
-    )
-    .where(projectId != null ? eq(projectsTable.id, projectId) : undefined)
+    .leftJoin(revenueRecordsTable, eq(revenueRecordsTable.projectId, projectsTable.id))
+    .where(filterProjectId != null ? eq(projectsTable.id, filterProjectId) : undefined)
     .groupBy(
       projectsTable.id,
       projectsTable.name,
       projectsTable.status,
       projectsTable.contractStart,
       projectsTable.contractEnd,
+      projectsTable.retentionApplicable,
+      projectsTable.releasePercentage,
     )
     .orderBy(projectsTable.name);
 
-  // For outstanding/overdue, we need per-record computation — fetch records and aggregate
-  const recordsByProject = new Map<number, { invoiced: number; collected: number; dueDate: string | null }[]>();
-
+  // Per-record aggregates (outstanding, overdue, pending retention)
   const allRecords = await db
     .select({
       projectId: revenueRecordsTable.projectId,
       invoiced: revenueRecordsTable.invoiced,
       collected: revenueRecordsTable.collected,
       dueDate: revenueRecordsTable.dueDate,
+      revenue: revenueRecordsTable.revenue,
+      bodStatus: revenueRecordsTable.bodStatus,
     })
     .from(revenueRecordsTable)
-    .where(projectId != null ? eq(revenueRecordsTable.projectId, projectId) : undefined);
+    .where(filterProjectId != null ? eq(revenueRecordsTable.projectId, filterProjectId) : undefined);
 
+  type RecAgg = {
+    invoiced: number;
+    collected: number;
+    dueDate: string | null;
+    revenue: number;
+    bodStatus: string | null;
+  };
+  const recordsByProject = new Map<number, RecAgg[]>();
   for (const r of allRecords) {
     if (r.projectId == null) continue;
     if (!recordsByProject.has(r.projectId)) recordsByProject.set(r.projectId, []);
@@ -73,6 +85,8 @@ async function buildProjectSummaries(projectId?: number) {
       invoiced: toNum(r.invoiced),
       collected: toNum(r.collected),
       dueDate: r.dueDate ?? null,
+      revenue: toNum(r.revenue),
+      bodStatus: r.bodStatus ?? null,
     });
   }
 
@@ -85,13 +99,42 @@ async function buildProjectSummaries(projectId?: number) {
     const totalPenalties = toNum(row.totalPenalties);
     const totalNetRevenue = toNum(row.totalNetRevenue);
     const avgDays = row.avgDays ? toNum(row.avgDays) : 0;
+    const releasePercentage = parseFloat(String(row.releasePercentage)) || 90;
+    const retentionApplicable = row.retentionApplicable;
 
     const recs = recordsByProject.get(row.id) ?? [];
-    const totalOutstanding = recs.reduce((s, r) => s + computeOutstanding(r.invoiced, r.collected), 0);
-    const totalOverdue = recs.reduce((s, r) => s + computeOverdue(r.invoiced, r.collected, r.dueDate, today), 0);
+    const retCfg = { retentionApplicable, releasePercentage };
 
-    const revenueAchievementPct = safeDiv(totalRevenue, totalWorkOrder) * 100;
-    const collectionPct = safeDiv(totalCollected, totalInvoiced) * 100;
+    let totalOutstanding = 0;
+    let totalOverdue = 0;
+    let totalRetained = 0;
+    let totalPendingRetention = 0;
+
+    for (const r of recs) {
+      totalOutstanding += computeOutstanding(r.invoiced, r.collected);
+      totalOverdue += computeOverdue(r.invoiced, r.collected, r.dueDate, today, {
+        retentionApplicable,
+        retainedAmount: r.revenue * ((100 - releasePercentage) / 100),
+        bodStatus: r.bodStatus,
+      });
+
+      if (retentionApplicable) {
+        const retainedAmount = r.revenue * ((100 - releasePercentage) / 100);
+        const initialRelease = r.revenue * (releasePercentage / 100);
+        const retentionInvoiced = r.invoiced > initialRelease + 1;
+        const retentionCollected = retentionInvoiced && r.collected >= r.invoiced - 1;
+
+        totalRetained += retainedAmount;
+        if (!retentionCollected) {
+          const isEligible = r.bodStatus === "Approved" || r.bodStatus === "Signed";
+          const isInvoiced = retentionInvoiced;
+          if (!isInvoiced) {
+            // Withheld or Eligible
+            totalPendingRetention += retainedAmount;
+          }
+        }
+      }
+    }
 
     return {
       id: row.id,
@@ -99,6 +142,8 @@ async function buildProjectSummaries(projectId?: number) {
       status: row.status,
       contractStart: row.contractStart ?? null,
       contractEnd: row.contractEnd ?? null,
+      retentionApplicable,
+      releasePercentage,
       totalWorkOrder,
       totalRevenue,
       totalDeductible,
@@ -108,8 +153,10 @@ async function buildProjectSummaries(projectId?: number) {
       totalOverdue,
       totalPenalties,
       totalNetRevenue,
-      revenueAchievementPct,
-      collectionPct,
+      totalRetained,
+      totalPendingRetention,
+      revenueAchievementPct: safeDiv(totalRevenue, totalWorkOrder) * 100,
+      collectionPct: safeDiv(totalCollected, totalInvoiced) * 100,
       avgCollectionDays: avgDays,
       latestRevenueMonth: row.latestRevenueMonth ?? null,
       latestInvoiceDate: row.latestInvoiceDate ?? null,
@@ -130,21 +177,20 @@ router.post("/projects", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const b = parsed.data as any;
   const [project] = await db
     .insert(projectsTable)
     .values({
-      name: parsed.data.name,
-      status: parsed.data.status,
-      contractStart: parsed.data.contractStart ?? null,
-      contractEnd: parsed.data.contractEnd ?? null,
+      name: b.name,
+      status: b.status,
+      contractStart: b.contractStart ?? null,
+      contractEnd: b.contractEnd ?? null,
+      retentionApplicable: b.retentionApplicable ?? false,
+      releasePercentage: String(b.releasePercentage ?? 90),
     })
     .returning();
   await logAudit("create", "projects", project.id, null, project);
-  res.status(201).json({
-    ...project,
-    createdAt: project.createdAt.toISOString(),
-    updatedAt: project.updatedAt.toISOString(),
-  });
+  res.status(201).json(serializeProject(project));
 });
 
 // GET /projects/:id
@@ -161,7 +207,6 @@ router.get("/projects/:id", async (req, res): Promise<void> => {
   }
   const project = summaries[0];
 
-  // Monthly trend
   const monthlyRows = await db
     .select({
       month: sql<string>`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`,
@@ -173,9 +218,7 @@ router.get("/projects/:id", async (req, res): Promise<void> => {
     })
     .from(revenueRecordsTable)
     .where(eq(revenueRecordsTable.projectId, params.data.id))
-    .groupBy(
-      sql`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`,
-    )
+    .groupBy(sql`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`)
     .orderBy(sql`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`);
 
   const monthlyTrend = monthlyRows.map((r) => ({
@@ -185,19 +228,27 @@ router.get("/projects/:id", async (req, res): Promise<void> => {
     invoiced: toNum(r.invoiced),
     collected: toNum(r.collected),
     netRevenue: toNum(r.netRevenue),
+    initialRelease: project.retentionApplicable
+      ? toNum(r.revenue) * (project.releasePercentage / 100)
+      : toNum(r.revenue),
+    retained: project.retentionApplicable
+      ? toNum(r.revenue) * ((100 - project.releasePercentage) / 100)
+      : 0,
   }));
 
   const today = new Date();
+  const retentionMap = await loadRetentionMap();
   const records = await db
     .select()
     .from(revenueRecordsTable)
     .where(eq(revenueRecordsTable.projectId, params.data.id))
     .orderBy(desc(revenueRecordsTable.revenueMonth));
 
+  const retention = getRetention(retentionMap, params.data.id);
   res.json({
     project,
     monthlyTrend,
-    records: records.map((r) => enrichRecord(r, today)),
+    records: records.map((r) => enrichRecord(r, today, retention)),
   });
 });
 
@@ -225,11 +276,13 @@ router.patch("/projects/:id", async (req, res): Promise<void> => {
   }
 
   const updates: Partial<typeof projectsTable.$inferInsert> = {};
-  const b = body.data;
+  const b = body.data as any;
   if (b.name != null) updates.name = b.name;
   if (b.status != null) updates.status = b.status;
   if ("contractStart" in b) updates.contractStart = b.contractStart ?? null;
   if ("contractEnd" in b) updates.contractEnd = b.contractEnd ?? null;
+  if ("retentionApplicable" in b) updates.retentionApplicable = b.retentionApplicable;
+  if ("releasePercentage" in b) updates.releasePercentage = String(b.releasePercentage);
 
   const [updated] = await db
     .update(projectsTable)
@@ -238,11 +291,7 @@ router.patch("/projects/:id", async (req, res): Promise<void> => {
     .returning();
 
   await logAudit("update", "projects", params.data.id, existing, updated);
-  res.json({
-    ...updated,
-    createdAt: updated.createdAt.toISOString(),
-    updatedAt: updated.updatedAt.toISOString(),
-  });
+  res.json(serializeProject(updated));
 });
 
 // DELETE /projects/:id
@@ -263,5 +312,14 @@ router.delete("/projects/:id", async (req, res): Promise<void> => {
   await logAudit("delete", "projects", params.data.id, deleted, null);
   res.sendStatus(204);
 });
+
+function serializeProject(p: typeof projectsTable.$inferSelect) {
+  return {
+    ...p,
+    releasePercentage: parseFloat(String(p.releasePercentage)) || 90,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  };
+}
 
 export default router;

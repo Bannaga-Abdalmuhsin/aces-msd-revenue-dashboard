@@ -26,5 +26,11 @@ export interface RecordInput {
   days?: number | null;
   penalties?: number;
   netRevenue?: number;
+  /** @nullable */
+  bodStatus?: string | null;
+  /** @nullable */
+  bodCompletionDate?: string | null;
+  /** @nullable */
+  retentionReleaseDate?: string | null;
   isDemo?: boolean;
 }

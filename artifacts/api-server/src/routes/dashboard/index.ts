@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, and, gte, lte, like } from "drizzle-orm";
+import { eq, sql, and, like, gte, lte, desc } from "drizzle-orm";
 import { db, revenueRecordsTable, projectsTable } from "@workspace/db";
 import {
   GetDashboardSummaryQueryParams,
@@ -19,7 +19,9 @@ import {
   computeOverdue,
   getAgingDays,
   agingBucket,
+  computeRetentionStatus,
 } from "../../lib/businessLogic";
+import { loadRetentionMap, getRetention } from "../../lib/retentionCache";
 
 const router: IRouter = Router();
 
@@ -27,7 +29,6 @@ function buildBaseConditions(params: {
   project?: string | null;
   revenueYear?: number | null;
   revenueMonth?: number | null;
-  projectStatus?: string | null;
 }) {
   const conditions = [];
   if (params.project) {
@@ -57,32 +58,55 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const conditions = buildBaseConditions(q as Parameters<typeof buildBaseConditions>[0]);
   const today = new Date();
 
-  const records = await db
-    .select()
-    .from(revenueRecordsTable)
-    .where(conditions.length ? and(...conditions) : undefined);
-
-  const lastUpdate = await db
-    .select({ maxDate: sql<string | null>`MAX(${revenueRecordsTable.updatedAt})` })
-    .from(revenueRecordsTable);
+  const [records, retentionMap, lastUpdate] = await Promise.all([
+    db
+      .select()
+      .from(revenueRecordsTable)
+      .where(conditions.length ? and(...conditions) : undefined),
+    loadRetentionMap(),
+    db
+      .select({ maxDate: sql<string | null>`MAX(${revenueRecordsTable.updatedAt})` })
+      .from(revenueRecordsTable),
+  ]);
 
   let totalWorkOrder = 0, totalRevenue = 0, totalDeductible = 0;
   let totalInvoiced = 0, totalCollected = 0, totalOutstanding = 0;
   let totalOverdue = 0, totalPenalties = 0, totalNetRevenue = 0;
+  let totalPendingRetention = 0;
   let totalDays = 0, daysCount = 0;
 
   for (const r of records) {
     const invoiced = toNum(r.invoiced);
     const collected = toNum(r.collected);
+    const revenue = toNum(r.revenue);
+    const retention = getRetention(retentionMap, r.projectId);
+    const { retentionApplicable, releasePercentage } = retention;
+    const retainedAmount = retentionApplicable ? revenue * ((100 - releasePercentage) / 100) : 0;
+    const initialRelease = retentionApplicable ? revenue * (releasePercentage / 100) : revenue;
+    const bodStatus = retentionApplicable ? (r.bodStatus ?? "Pending") : null;
+
     totalWorkOrder += toNum(r.workOrder);
-    totalRevenue += toNum(r.revenue);
+    totalRevenue += revenue;
     totalDeductible += toNum(r.deductible);
     totalInvoiced += invoiced;
     totalCollected += collected;
     totalPenalties += toNum(r.penalties);
     totalNetRevenue += toNum(r.netRevenue);
     totalOutstanding += computeOutstanding(invoiced, collected);
-    totalOverdue += computeOverdue(invoiced, collected, r.dueDate, today);
+    totalOverdue += computeOverdue(invoiced, collected, r.dueDate, today, {
+      retentionApplicable,
+      retainedAmount,
+      bodStatus,
+    });
+
+    // Pending retention: not yet invoiced and not yet collected
+    if (retentionApplicable) {
+      const retentionStatus = computeRetentionStatus(bodStatus, initialRelease, retainedAmount, invoiced, collected);
+      if (retentionStatus === "Withheld" || retentionStatus === "Eligible for Release") {
+        totalPendingRetention += retainedAmount;
+      }
+    }
+
     if (r.days != null && collected > 0) {
       totalDays += r.days;
       daysCount++;
@@ -99,6 +123,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     totalOverdue,
     totalPenalties,
     totalNetRevenue,
+    totalPendingRetention,
     collectionRate: safeDiv(totalCollected, totalInvoiced) * 100,
     revenueAchievementRate: safeDiv(totalRevenue, totalWorkOrder) * 100,
     invoiceConversionRate: safeDiv(totalInvoiced, totalRevenue) * 100,
@@ -151,28 +176,30 @@ router.get("/dashboard/project-performance", async (req, res): Promise<void> => 
     return;
   }
   const q = parsed.data;
-  const conditions: ReturnType<typeof sql>[] = [];
+  const conditions = [];
   if (q.revenueYear) {
     conditions.push(
       sql`EXTRACT(YEAR FROM ${revenueRecordsTable.revenueMonth}::date) = ${q.revenueYear}`,
     );
   }
 
-  const today = new Date();
-  const records = await db
-    .select()
-    .from(revenueRecordsTable)
-    .where(conditions.length ? and(...conditions) : undefined);
+  const [records, retentionMap] = await Promise.all([
+    db
+      .select()
+      .from(revenueRecordsTable)
+      .where(conditions.length ? and(...conditions) : undefined),
+    loadRetentionMap(),
+  ]);
 
   const projectMap = new Map<
     string,
-    { workOrder: number; revenue: number; invoiced: number; collected: number }
+    { workOrder: number; revenue: number; invoiced: number; collected: number; projectId: number | null }
   >();
 
   for (const r of records) {
     const name = r.projectName;
     if (!projectMap.has(name)) {
-      projectMap.set(name, { workOrder: 0, revenue: 0, invoiced: 0, collected: 0 });
+      projectMap.set(name, { workOrder: 0, revenue: 0, invoiced: 0, collected: 0, projectId: r.projectId ?? null });
     }
     const p = projectMap.get(name)!;
     p.workOrder += toNum(r.workOrder);
@@ -208,10 +235,13 @@ router.get("/dashboard/aging", async (req, res): Promise<void> => {
   }
 
   const today = new Date();
-  const records = await db
-    .select()
-    .from(revenueRecordsTable)
-    .where(conditions.length ? and(...conditions) : undefined);
+  const [records, retentionMap] = await Promise.all([
+    db
+      .select()
+      .from(revenueRecordsTable)
+      .where(conditions.length ? and(...conditions) : undefined),
+    loadRetentionMap(),
+  ]);
 
   const buckets: Record<string, { count: number; amount: number }> = {
     "Not Due": { count: 0, amount: 0 },
@@ -220,20 +250,47 @@ router.get("/dashboard/aging", async (req, res): Promise<void> => {
     "61–90 days": { count: 0, amount: 0 },
     "90+ days": { count: 0, amount: 0 },
   };
-
   let totalOutstanding = 0;
 
   for (const r of records) {
     const invoiced = toNum(r.invoiced);
     const collected = toNum(r.collected);
-    const outstanding = computeOutstanding(invoiced, collected);
-    if (outstanding <= 0) continue;
+    const retention = getRetention(retentionMap, r.projectId);
+    const { retentionApplicable, releasePercentage } = retention;
+    const revenue = toNum(r.revenue);
+    const retainedAmount = retentionApplicable ? revenue * ((100 - releasePercentage) / 100) : 0;
+    const bodStatus = retentionApplicable ? (r.bodStatus ?? "Pending") : null;
 
-    const days = r.dueDate ? getAgingDays(r.dueDate, today) : 0;
-    const bucket = agingBucket(days, outstanding, r.dueDate, today);
-    buckets[bucket].count++;
-    buckets[bucket].amount += outstanding;
-    totalOutstanding += outstanding;
+    // Effective outstanding = total outstanding minus withheld retention (not aged)
+    const fullOutstanding = computeOutstanding(invoiced, collected);
+    if (fullOutstanding <= 0) continue;
+
+    const withheldRetention =
+      retentionApplicable &&
+      (bodStatus === "Pending" || bodStatus === "Submitted" || bodStatus == null) &&
+      fullOutstanding <= retainedAmount + 1
+        ? fullOutstanding
+        : retentionApplicable &&
+          (bodStatus === "Pending" || bodStatus === "Submitted" || bodStatus == null)
+        ? retainedAmount
+        : 0;
+
+    const agingOutstanding = Math.max(fullOutstanding - withheldRetention, 0);
+
+    // Put withheld retention in "Not Due" bucket
+    if (withheldRetention > 0) {
+      buckets["Not Due"].count++;
+      buckets["Not Due"].amount += withheldRetention;
+      totalOutstanding += withheldRetention;
+    }
+
+    if (agingOutstanding > 0) {
+      const days = r.dueDate ? getAgingDays(r.dueDate, today) : 0;
+      const bucket = agingBucket(days, agingOutstanding, r.dueDate, today);
+      buckets[bucket].count++;
+      buckets[bucket].amount += agingOutstanding;
+      totalOutstanding += agingOutstanding;
+    }
   }
 
   res.json({
@@ -250,14 +307,13 @@ router.get("/dashboard/aging", async (req, res): Promise<void> => {
 router.get("/dashboard/insights", async (_req, res): Promise<void> => {
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
-  const in15Days = new Date(today.getTime() + 15 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
-  const days60Ago = new Date(today.getTime() - 60 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
+  const in15Days = new Date(today.getTime() + 15 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const days60Ago = new Date(today.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-  const records = await db.select().from(revenueRecordsTable);
+  const [records, retentionMap] = await Promise.all([
+    db.select().from(revenueRecordsTable),
+    loadRetentionMap(),
+  ]);
 
   const insights: Array<{
     type: string;
@@ -267,22 +323,14 @@ router.get("/dashboard/insights", async (_req, res): Promise<void> => {
     amount: number | null;
   }> = [];
 
-  // Aggregate by project
   const projectData = new Map<
     string,
     {
-      workOrder: number;
-      revenue: number;
-      invoiced: number;
-      collected: number;
-      outstanding: number;
-      overdue: number;
-      overdue60: number;
-      penalties: number;
-      unbilled: number;
-      dueSoon: number;
-      totalDays: number;
-      daysCount: number;
+      projectId: number | null;
+      workOrder: number; revenue: number; invoiced: number; collected: number;
+      outstanding: number; overdue: number; overdue60: number; penalties: number;
+      unbilled: number; dueSoon: number; totalDays: number; daysCount: number;
+      pendingRetention: number;
     }
   >();
 
@@ -290,36 +338,43 @@ router.get("/dashboard/insights", async (_req, res): Promise<void> => {
     const name = r.projectName;
     if (!projectData.has(name)) {
       projectData.set(name, {
+        projectId: r.projectId ?? null,
         workOrder: 0, revenue: 0, invoiced: 0, collected: 0,
         outstanding: 0, overdue: 0, overdue60: 0, penalties: 0,
         unbilled: 0, dueSoon: 0, totalDays: 0, daysCount: 0,
+        pendingRetention: 0,
       });
     }
     const p = projectData.get(name)!;
-    const workOrder = toNum(r.workOrder);
+    const retention = getRetention(retentionMap, r.projectId);
+    const { retentionApplicable, releasePercentage } = retention;
     const revenue = toNum(r.revenue);
     const invoiced = toNum(r.invoiced);
     const collected = toNum(r.collected);
     const penalties = toNum(r.penalties);
     const outstanding = computeOutstanding(invoiced, collected);
+    const retainedAmount = retentionApplicable ? revenue * ((100 - releasePercentage) / 100) : 0;
+    const initialRelease = retentionApplicable ? revenue * (releasePercentage / 100) : revenue;
+    const bodStatus = retentionApplicable ? (r.bodStatus ?? "Pending") : null;
 
-    p.workOrder += workOrder;
+    p.workOrder += toNum(r.workOrder);
     p.revenue += revenue;
     p.invoiced += invoiced;
     p.collected += collected;
     p.outstanding += outstanding;
     p.penalties += penalties;
 
-    // Unbilled revenue
-    if (revenue > invoiced + 1) p.unbilled += revenue - invoiced;
+    const overdueAmount = computeOverdue(invoiced, collected, r.dueDate, today, {
+      retentionApplicable, retainedAmount, bodStatus,
+    });
+    p.overdue += overdueAmount;
 
-    // Overdue
-    if (outstanding > 0 && r.dueDate && r.dueDate < todayStr) {
-      p.overdue += outstanding;
-      if (r.dueDate < days60Ago) p.overdue60 += outstanding;
+    if (r.dueDate && r.dueDate < days60Ago && overdueAmount > 0) {
+      p.overdue60 += overdueAmount;
     }
 
-    // Due soon
+    if (revenue > invoiced + 1) p.unbilled += revenue - invoiced;
+
     if (outstanding > 0 && r.dueDate && r.dueDate >= todayStr && r.dueDate <= in15Days) {
       p.dueSoon += outstanding;
     }
@@ -328,88 +383,44 @@ router.get("/dashboard/insights", async (_req, res): Promise<void> => {
       p.totalDays += r.days;
       p.daysCount++;
     }
+
+    if (retentionApplicable) {
+      const retentionStatus = computeRetentionStatus(bodStatus, initialRelease, retainedAmount, invoiced, collected);
+      if (retentionStatus === "Withheld" || retentionStatus === "Eligible for Release") {
+        p.pendingRetention += retainedAmount;
+      }
+    }
   }
 
   for (const [name, p] of projectData.entries()) {
-    // Below 90% achievement
     const achievementPct = safeDiv(p.revenue, p.workOrder) * 100;
     if (achievementPct < 90 && p.workOrder > 0) {
-      insights.push({
-        type: "low_achievement",
-        severity: "warning",
-        message: `${name} is at ${achievementPct.toFixed(1)}% revenue achievement (below 90% threshold).`,
-        projectName: name,
-        amount: p.revenue,
-      });
+      insights.push({ type: "low_achievement", severity: "warning", message: `${name} is at ${achievementPct.toFixed(1)}% revenue achievement (below 90% threshold).`, projectName: name, amount: p.revenue });
     }
-
-    // Overdue 60+ days
     if (p.overdue60 > 0) {
-      insights.push({
-        type: "overdue_60",
-        severity: "critical",
-        message: `${name} has SAR ${formatSar(p.overdue60)} outstanding, overdue by more than 60 days.`,
-        projectName: name,
-        amount: p.overdue60,
-      });
+      insights.push({ type: "overdue_60", severity: "critical", message: `${name} has SAR ${formatSar(p.overdue60)} outstanding, overdue by more than 60 days.`, projectName: name, amount: p.overdue60 });
     } else if (p.overdue > 0) {
-      insights.push({
-        type: "overdue",
-        severity: "warning",
-        message: `${name} has SAR ${formatSar(p.overdue)} overdue.`,
-        projectName: name,
-        amount: p.overdue,
-      });
+      insights.push({ type: "overdue", severity: "warning", message: `${name} has SAR ${formatSar(p.overdue)} overdue.`, projectName: name, amount: p.overdue });
     }
-
-    // Unbilled revenue
     if (p.unbilled > 1000) {
-      insights.push({
-        type: "unbilled",
-        severity: "warning",
-        message: `${name} has SAR ${formatSar(p.unbilled)} in recognized revenue not yet invoiced.`,
-        projectName: name,
-        amount: p.unbilled,
-      });
+      insights.push({ type: "unbilled", severity: "warning", message: `${name} has SAR ${formatSar(p.unbilled)} in recognized revenue not yet invoiced.`, projectName: name, amount: p.unbilled });
     }
-
-    // Due soon
     if (p.dueSoon > 0) {
-      insights.push({
-        type: "due_soon",
-        severity: "info",
-        message: `${name} has SAR ${formatSar(p.dueSoon)} due within the next 15 days.`,
-        projectName: name,
-        amount: p.dueSoon,
-      });
+      insights.push({ type: "due_soon", severity: "info", message: `${name} has SAR ${formatSar(p.dueSoon)} due within the next 15 days.`, projectName: name, amount: p.dueSoon });
     }
-
-    // High penalties
     const penaltyRate = safeDiv(p.penalties, p.invoiced) * 100;
     if (penaltyRate > 5 && p.invoiced > 0) {
-      insights.push({
-        type: "high_penalties",
-        severity: "warning",
-        message: `${name} has high penalties: SAR ${formatSar(p.penalties)} (${penaltyRate.toFixed(1)}% of invoiced).`,
-        projectName: name,
-        amount: p.penalties,
-      });
+      insights.push({ type: "high_penalties", severity: "warning", message: `${name} has high penalties: SAR ${formatSar(p.penalties)} (${penaltyRate.toFixed(1)}% of invoiced).`, projectName: name, amount: p.penalties });
     }
-
-    // Slow collection
     const avgDays = p.daysCount > 0 ? p.totalDays / p.daysCount : 0;
     if (avgDays > 90 && p.daysCount > 0) {
-      insights.push({
-        type: "slow_collection",
-        severity: "info",
-        message: `${name} has slow collection: average ${Math.round(avgDays)} days to collect.`,
-        projectName: name,
-        amount: avgDays,
-      });
+      insights.push({ type: "slow_collection", severity: "info", message: `${name} has slow collection: average ${Math.round(avgDays)} days to collect.`, projectName: name, amount: avgDays });
+    }
+    if (p.pendingRetention > 0) {
+      insights.push({ type: "pending_retention", severity: "info", message: `${name} has SAR ${formatSar(p.pendingRetention)} in pending 10% retention (BOD not yet approved).`, projectName: name, amount: p.pendingRetention });
     }
   }
 
-  // Sort: critical first
   insights.sort((a, b) => {
     const order = { critical: 0, warning: 1, info: 2 };
     return order[a.severity] - order[b.severity];
@@ -433,13 +444,9 @@ router.get("/dashboard/collection-trend", async (req, res): Promise<void> => {
   }
   const q = parsed.data;
   const conditions = [];
-  if (q.project) {
-    conditions.push(like(revenueRecordsTable.projectName, `%${q.project}%`));
-  }
+  if (q.project) conditions.push(like(revenueRecordsTable.projectName, `%${q.project}%`));
   if (q.revenueYear) {
-    conditions.push(
-      sql`EXTRACT(YEAR FROM ${revenueRecordsTable.collectedDate}::date) = ${q.revenueYear}`,
-    );
+    conditions.push(sql`EXTRACT(YEAR FROM ${revenueRecordsTable.collectedDate}::date) = ${q.revenueYear}`);
   }
 
   const rows = await db
@@ -459,13 +466,7 @@ router.get("/dashboard/collection-trend", async (req, res): Promise<void> => {
     .groupBy(sql`TO_CHAR(${revenueRecordsTable.collectedDate}::date, 'YYYY-MM')`)
     .orderBy(sql`TO_CHAR(${revenueRecordsTable.collectedDate}::date, 'YYYY-MM')`);
 
-  res.json(
-    rows.map((r) => ({
-      month: r.month,
-      collected: toNum(r.collected),
-      count: r.count,
-    })),
-  );
+  res.json(rows.map((r) => ({ month: r.month, collected: toNum(r.collected), count: r.count })));
 });
 
 // GET /dashboard/heatmap
@@ -478,9 +479,7 @@ router.get("/dashboard/heatmap", async (req, res): Promise<void> => {
   const q = parsed.data;
   const conditions = [];
   if (q.revenueYear) {
-    conditions.push(
-      sql`EXTRACT(YEAR FROM ${revenueRecordsTable.revenueMonth}::date) = ${q.revenueYear}`,
-    );
+    conditions.push(sql`EXTRACT(YEAR FROM ${revenueRecordsTable.revenueMonth}::date) = ${q.revenueYear}`);
   }
 
   const records = await db
@@ -492,20 +491,11 @@ router.get("/dashboard/heatmap", async (req, res): Promise<void> => {
     })
     .from(revenueRecordsTable)
     .where(conditions.length ? and(...conditions) : undefined)
-    .groupBy(
-      revenueRecordsTable.projectName,
-      sql`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`,
-    )
-    .orderBy(
-      revenueRecordsTable.projectName,
-      sql`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`,
-    );
+    .groupBy(revenueRecordsTable.projectName, sql`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`)
+    .orderBy(revenueRecordsTable.projectName, sql`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`);
 
-  // Build unique sorted months and project names
   const months = [...new Set(records.map((r) => r.month))].sort();
   const projectNames = [...new Set(records.map((r) => r.projectName))].sort();
-
-  // Build lookup
   const lookup = new Map(
     records.map((r) => [`${r.projectName}:${r.month}`, safeDiv(toNum(r.revenue), toNum(r.workOrder)) * 100]),
   );
@@ -531,22 +521,31 @@ router.get("/dashboard/payment-status", async (req, res): Promise<void> => {
   }
   const q = parsed.data;
   const conditions = [];
-  if (q.project) {
-    conditions.push(like(revenueRecordsTable.projectName, `%${q.project}%`));
-  }
+  if (q.project) conditions.push(like(revenueRecordsTable.projectName, `%${q.project}%`));
 
   const today = new Date();
-  const records = await db
-    .select()
-    .from(revenueRecordsTable)
-    .where(conditions.length ? and(...conditions) : undefined);
+  const [records, retentionMap] = await Promise.all([
+    db
+      .select()
+      .from(revenueRecordsTable)
+      .where(conditions.length ? and(...conditions) : undefined),
+    loadRetentionMap(),
+  ]);
 
   const statusMap = new Map<string, { count: number; amount: number }>();
 
   for (const r of records) {
     const invoiced = toNum(r.invoiced);
     const collected = toNum(r.collected);
-    const status = computePaymentStatus(invoiced, collected, r.dueDate, r.collectedDate, today);
+    const retention = getRetention(retentionMap, r.projectId);
+    const { retentionApplicable, releasePercentage } = retention;
+    const revenue = toNum(r.revenue);
+    const retainedAmount = retentionApplicable ? revenue * ((100 - releasePercentage) / 100) : 0;
+    const bodStatus = retentionApplicable ? (r.bodStatus ?? "Pending") : null;
+
+    const status = computePaymentStatus(invoiced, collected, r.dueDate, r.collectedDate, today, {
+      retentionApplicable, retainedAmount, bodStatus,
+    });
     if (!statusMap.has(status)) statusMap.set(status, { count: 0, amount: 0 });
     const s = statusMap.get(status)!;
     s.count++;
@@ -554,11 +553,7 @@ router.get("/dashboard/payment-status", async (req, res): Promise<void> => {
   }
 
   res.json(
-    Array.from(statusMap.entries()).map(([status, v]) => ({
-      status,
-      count: v.count,
-      amount: v.amount,
-    })),
+    Array.from(statusMap.entries()).map(([status, v]) => ({ status, count: v.count, amount: v.amount })),
   );
 });
 

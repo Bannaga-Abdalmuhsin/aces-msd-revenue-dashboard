@@ -14,6 +14,8 @@ export interface ProjectSummary {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
+  retentionApplicable?: boolean;
+  releasePercentage?: number;
   totalWorkOrder: number;
   totalRevenue: number;
   totalDeductible: number;
@@ -23,6 +25,8 @@ export interface ProjectSummary {
   totalOverdue: number;
   totalPenalties: number;
   totalNetRevenue: number;
+  totalRetained?: number;
+  totalPendingRetention?: number;
   revenueAchievementPct: number;
   collectionPct: number;
   avgCollectionDays: number;
