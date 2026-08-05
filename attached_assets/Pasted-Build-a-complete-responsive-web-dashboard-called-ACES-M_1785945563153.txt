@@ -1,0 +1,526 @@
+Build a complete, responsive web dashboard called:
+
+ACES MSD – Project Revenue Dashboard
+
+Implement this specification exactly. Do not simplify, reinterpret, redesign, add unrelated functionality, or change the financial definitions. The final web dashboard must closely reproduce the approved Mokkup design using the same structure, layout, ACES theme, KPIs, charts, project baselines, and exclusions.
+
+1. APPLICATION TYPE
+
+Build this as a functional, data-driven web application—not a static image or presentation.
+
+Use:
+
+* React
+* TypeScript
+* Tailwind CSS
+* Recharts
+* PostgreSQL or the available Replit database
+* SheetJS/XLSX for Excel import
+
+Requirements:
+
+* Responsive desktop and tablet layout.
+* Optimized primarily for a 1920×1080 executive display.
+* Support Excel and CSV uploads.
+* Store imported records persistently.
+* Use Asia/Riyadh as the default timezone.
+* Use SAR for all financial values.
+* Include loading, empty, validation, and error states.
+
+2. PURPOSE
+
+The dashboard must provide ACES senior management with an immediate high-level overview of:
+
+* Total portfolio PO value
+* Expected revenue
+* Actual recognized revenue
+* Amount invoiced
+* Amount collected
+* Net revenue
+* Outstanding amount
+* Revenue achievement
+* Collection rate
+* Project status
+* Monthly financial performance
+* Project start and end dates
+
+Keep the main dashboard executive-level and visually concise. Do not show excessive operational, invoice-level, BOD, retention, or payment-aging details.
+
+3. DATA STRUCTURE
+
+Support Excel files with these column headers:
+
+* Project
+* Date
+* Work Order
+* Revenue
+* Deductible
+* Invoiced
+* Invoice Date
+* Invoice No
+* Due Date
+* Collected
+* Collected Date
+* Days
+* Penalties
+* Net Revenue
+
+Interpret them as follows:
+
+* Project: Project name.
+* Date: Revenue reporting month.
+* Work Order: Expected revenue for the reporting month.
+* Revenue: Actual recognized revenue based on completed work.
+* Deductible: Value associated with incomplete work.
+* Invoiced: Amount submitted to the customer.
+* Invoice Date: Exact invoice-submission date.
+* Invoice No: Invoice reference.
+* Due Date: Expected collection date.
+* Collected: Amount received.
+* Collected Date: Exact receipt date.
+* Days: Difference between Invoice Date and Collected Date.
+* Penalties: Financial penalties applied.
+* Net Revenue: Net amount received.
+
+Display the revenue Date as MMM YYYY.
+
+Example:
+
+10/30/2023 → Oct 2023
+
+Display exact invoice and collection dates as DD/MM/YYYY only in the underlying data, not on the main executive dashboard.
+
+4. PROJECT BASELINE
+
+Seed the application with this approved baseline:
+
+| Project                        | Start Date | End Date |           PO Value | Expected Monthly Revenue |
+| ------------------------------ | ---------: | -------: | -----------------: | -----------------------: |
+| STC COW                        |   Oct 2023 | Oct 2026 | SAR 123,000,000.00 |         SAR 3,416,666.67 |
+| Diesel Compensation 2024       |   Jan 2025 | Jan 2025 |   SAR 5,387,339.00 |         SAR 5,387,339.00 |
+| Diesel Compensation 2025       |   Jan 2025 | Dec 2025 |  SAR 12,000,000.00 |         SAR 1,000,000.00 |
+| Diesel Compensation 2026       |   Jan 2026 | Oct 2026 |  SAR 11,400,000.00 |         SAR 1,200,000.00 |
+| STC IBS                        |   Oct 2023 | Oct 2026 |  SAR 45,000,000.00 |         SAR 1,250,000.05 |
+| STC WiFi                       |   May 2022 | Apr 2026 |  SAR 24,875,578.64 |           SAR 518,241.22 |
+| ACES – NHP MS Project O&M 2025 |   Jan 2025 | Dec 2025 |   SAR 3,836,650.53 |           SAR 319,720.88 |
+| ACES – NHP MS Project O&M 2026 |   Jan 2026 | Dec 2026 |   SAR 4,800,000.00 |           SAR 400,000.00 |
+
+Total Portfolio PO Value:
+
+SAR 230,299,568.17
+
+Display the abbreviated value as:
+
+SAR 230.30M
+
+Preserve all supplied baseline values exactly.
+
+Flag Diesel Compensation 2026 internally for validation because SAR 1.20M across ten months equals SAR 12.00M, while the PO is SAR 11.40M. Do not automatically change the value. The user must be able to correct it later.
+
+Do not recalculate or change an approved PO value based only on the displayed contract dates.
+
+5. PROJECT STATUS
+
+Determine status according to the selected reporting period:
+
+* Upcoming: Selected period is before Start Date.
+* Active: Selected period is between Start Date and End Date.
+* Completed: Selected period is after End Date.
+
+Status colors:
+
+* Active: ACES blue
+* Completed: Neutral grey
+* Upcoming: Light blue
+
+6. GLOBAL FILTERS
+
+Include only:
+
+* Project
+* Year
+* Month
+
+Place these filters horizontally below the header.
+
+Requirements:
+
+* Include “All Projects”, “All Years”, and “All Months”.
+* All KPIs, charts, timelines, and tables must respond to the filters.
+* Add one compact “Reset Filters” action.
+* Do not create a large filter sidebar.
+
+7. PRIMARY KPI CARDS
+
+Create one row of six cards:
+
+1. Total PO Value
+2. Expected Revenue
+3. Actual Revenue
+4. Invoiced
+5. Collected
+6. Outstanding
+
+Create a smaller supporting KPI strip below it:
+
+* Net Revenue
+* Revenue Achievement %
+* Collection Rate %
+
+Each KPI must:
+
+* Use SAR.
+* Format large values as K or M.
+* Show the exact amount in a tooltip.
+* Include a compact icon.
+* Show change from the previous comparable period where valid.
+* Use green for positive collection performance.
+* Use amber for gaps requiring attention.
+* Use red only for critical underperformance.
+
+8. FINANCIAL CALCULATIONS
+
+Use these formulas:
+
+Outstanding:
+
+Maximum of (Invoiced − Collected, 0)
+
+Expected Revenue for a selected month:
+
+Sum of Expected Monthly Revenue for projects active during that month
+
+Planned Revenue to Date:
+
+Expected Monthly Revenue × eligible active reporting months
+
+Revenue Achievement:
+
+Actual Revenue ÷ Planned Revenue to Date × 100
+
+Collection Rate:
+
+Collected ÷ Invoiced × 100
+
+Remaining PO:
+
+Maximum of (PO Value − cumulative Actual Revenue, 0)
+
+Net Revenue:
+
+Use the Net Revenue value supplied by the Excel data.
+
+Rules:
+
+* Expected revenue applies only during the project’s active period.
+* Do not calculate expected revenue before Start Date.
+* Do not calculate expected revenue after End Date.
+* Keep baseline records separate from imported actual records.
+* Do not overwrite imported financial values.
+* Do not calculate deductions, penalties, or net revenue when the required source values are blank.
+* Handle blank or zero denominators safely.
+* Never display NaN, Infinity, or calculation errors.
+* Use decimal-safe financial handling, not normal floating-point arithmetic.
+
+9. DASHBOARD VISUALS
+
+A. Monthly Financial Performance
+
+Create the largest visual as a combined chart showing:
+
+* Expected Revenue
+* Actual Revenue
+* Invoiced
+* Collected
+
+Style:
+
+* Expected Revenue: Light ACES blue columns
+* Actual Revenue: Primary ACES blue columns
+* Invoiced: Dark navy columns or line
+* Collected: Green line
+* Months displayed as Jan, Feb, Mar, etc.
+* Minimal gridlines
+* Exact values available through tooltips
+
+B. Project Financial Performance
+
+Create a horizontal grouped bar chart showing:
+
+* Expected Revenue
+* Actual Revenue
+* Collected
+
+Requirements:
+
+* One row per project
+* Rank by Actual Revenue or PO Value
+* Keep all project names readable
+* Use consistent corporate colors
+
+C. Collection Overview
+
+Create a two-segment donut chart showing:
+
+* Collected
+* Outstanding
+
+Requirements:
+
+* Display Collection Rate in the center.
+* Green for Collected.
+* Amber or red for Outstanding.
+* Do not add extra categories.
+
+D. Revenue Achievement by Project
+
+Create a ranked horizontal bar chart using:
+
+Actual Revenue ÷ Planned Revenue to Date × 100
+
+Colors:
+
+* Green: 90% or above
+* Amber: 70%–89%
+* Red: Below 70%
+
+Show the percentage at the end of each bar.
+
+E. Project Portfolio Timeline
+
+Create a compact executive project timeline showing:
+
+* Project
+* Start date
+* End date
+* Status
+
+Colors:
+
+* Active: ACES blue
+* Completed: Grey
+* Upcoming: Light blue
+
+Keep it high-level. Do not build a detailed project-management Gantt chart.
+
+10. MANAGEMENT SUMMARY TABLE
+
+Create a compact table containing:
+
+* Project
+* Status
+* Start
+* End
+* PO Value
+* Expected Revenue
+* Actual Revenue
+* Invoiced
+* Collected
+* Outstanding
+* Achievement %
+
+Requirements:
+
+* Use abbreviated SAR values.
+* Show exact values through tooltips.
+* Use compact status badges.
+* Highlight high Outstanding values.
+* Highlight achievement below 70%.
+* Allow sorting by PO, Revenue, Collected, Outstanding, and Achievement.
+* Do not show individual invoice numbers or transaction dates here.
+
+11. ACES CORPORATE IDENTITY
+
+Use the uploaded official ACES logo.
+
+Logo rules:
+
+* Place it in the top-left corner.
+* Preserve its original proportions and colors.
+* Maintain appropriate clear space.
+* Do not distort, crop, recolor, redraw, or add effects.
+* Do not use a generated replacement logo.
+* If the logo file is unavailable, show a clearly marked temporary placeholder and request the official asset.
+
+Header content:
+
+* Official ACES logo
+* Managed Services Department
+* Project Revenue Dashboard
+* Selected reporting period
+* Last updated date
+
+Keep the header compact and professional.
+
+12. ACES COLOR THEME
+
+Extract the main corporate colors from the uploaded official logo and define them as reusable CSS theme variables.
+
+Use:
+
+* ACES blue for primary financial data.
+* Dark navy for headings and major text.
+* Light ACES blue for expected and secondary values.
+* Green for collected and positive results.
+* Amber for moderate gaps.
+* Red only for critical gaps.
+* Grey for completed projects.
+* White or very light grey for the page background.
+* White for dashboard cards.
+* Very light grey for borders.
+* Dark navy or charcoal for body text.
+
+Do not introduce unrelated decorative colors.
+
+13. TYPOGRAPHY AND UI STYLE
+
+Use:
+
+* A clean corporate sans-serif font.
+* Bold KPI values.
+* Medium-weight chart titles.
+* Concise labels.
+* Rounded cards.
+* Subtle shadows.
+* Minimal borders.
+* Consistent spacing.
+* Clean professional icons.
+* Accessible color contrast.
+
+Avoid:
+
+* Decorative fonts.
+* Strong gradients.
+* Heavy shadows.
+* 3D charts.
+* Excessive animation.
+* Excessive borders.
+* Dark dashboard backgrounds.
+* Overcrowded components.
+
+14. REQUIRED LAYOUT
+
+Header:
+
+* ACES logo and title on the left.
+* Reporting period and Last Updated on the right.
+
+Filter row:
+
+* Project
+* Year
+* Month
+* Reset Filters
+
+Primary KPI row:
+
+* Total PO Value
+* Expected Revenue
+* Actual Revenue
+* Invoiced
+* Collected
+* Outstanding
+
+Supporting KPI strip:
+
+* Net Revenue
+* Revenue Achievement %
+* Collection Rate %
+
+Main row:
+
+* Monthly Financial Performance: approximately two-thirds width
+* Collection Overview: approximately one-third width
+
+Secondary row:
+
+* Project Financial Performance: left
+* Revenue Achievement by Project: right
+
+Bottom:
+
+* Compact Project Portfolio Timeline
+* Compact Management Summary Table
+
+Keep the executive content visible with minimal scrolling on a standard desktop screen.
+
+15. EXCEL IMPORT
+
+Add a discreet “Update Data” button in the header.
+
+Import process:
+
+1. Upload Excel or CSV.
+2. Detect the required headers.
+3. Preview the imported records.
+4. Validate dates and financial fields.
+5. Show errors or warnings.
+6. Confirm import.
+7. Update the dashboard.
+8. Display Last Updated date and time.
+
+Prevent obvious duplicates using a combination of:
+
+* Project
+* Revenue reporting month
+* Invoice No, when available
+
+Do not expose the import interface on the main dashboard unless Update Data is selected.
+
+16. EXCLUSIONS
+
+Do not include:
+
+* Retention calculations
+* Released-versus-retained revenue
+* BOD tracking
+* Detailed invoice register on the main dashboard
+* Invoice-level KPI cards
+* Individual invoice numbers on the executive view
+* Payment-aging analysis
+* Due-date alerts
+* Operational workflows
+* Detailed project scheduling
+* Forecast pages
+* Multiple dashboard pages
+* Large navigation sidebars
+* Unnecessary data-entry forms
+* User-management features unless requested later
+* Invented financial data
+
+17. QUALITY AND VERIFICATION
+
+Before completion:
+
+* Verify that all baseline PO values total SAR 230,299,568.17.
+* Verify every KPI against the imported data.
+* Verify all filters update every visual.
+* Verify project status changes correctly by reporting period.
+* Verify expected revenue is generated only during active months.
+* Verify date formatting.
+* Verify SAR formatting.
+* Verify the dashboard at desktop and tablet widths.
+* Verify the official logo remains undistorted.
+* Verify there are no console errors.
+* Verify there are no NaN or Infinity values.
+* Verify empty-data states.
+* Verify charts remain readable with all eight projects.
+
+18. FINAL EXPECTATION
+
+The result must closely match the approved Mokkup executive dashboard and look like an official ACES internal financial system.
+
+Senior management must be able to answer immediately:
+
+* What is the total portfolio PO value?
+* Which projects are active, completed, or upcoming?
+* What revenue was expected?
+* What actual revenue was achieved?
+* How much was invoiced?
+* How much was collected?
+* How much is outstanding?
+* What is the net revenue?
+* Which projects are achieving their targets?
+* How is performance changing month by month?
+
+Build the working application now. Do not stop after producing a plan, wireframe, explanation, or static mockup. Implement the dashboard, seed the project baselines, test the calculations, and provide a working Replit preview.

@@ -104,43 +104,83 @@ const PROJECT_STATUS: Record<string, "ongoing" | "completed" | "closed"> = {
   "ACES - NHP MS Project  O&M 2026": "ongoing",
 };
 
+// Official project baselines from approved spec
+// Total PO = SAR 230,299,568.17
+const PROJECT_BASELINES: Record<string, {
+  contractStart: string;
+  contractEnd: string;
+  poValue: number;
+  expectedMonthlyRevenue: number;
+}> = {
+  "STC COW":                         { contractStart: "2023-10-01", contractEnd: "2026-10-31", poValue: 123000000,    expectedMonthlyRevenue: 3416666.67 },
+  "Diesel Compensation 2024":        { contractStart: "2024-01-01", contractEnd: "2024-12-31", poValue: 5387339,      expectedMonthlyRevenue: 5387339 },
+  "Diesel Compensation 2025":        { contractStart: "2025-01-01", contractEnd: "2025-12-31", poValue: 12000000,     expectedMonthlyRevenue: 1000000 },
+  "Diesel Compensation 2026":        { contractStart: "2026-01-01", contractEnd: "2026-10-31", poValue: 11400000,     expectedMonthlyRevenue: 1200000 },
+  "STC IBS":                         { contractStart: "2023-10-01", contractEnd: "2026-10-31", poValue: 45000000,     expectedMonthlyRevenue: 1250000.05 },
+  "STC WiFi":                        { contractStart: "2022-05-01", contractEnd: "2026-04-30", poValue: 24875578.64,  expectedMonthlyRevenue: 518241.22 },
+  "ACES - NHP MS Project  O&M 2025": { contractStart: "2025-01-01", contractEnd: "2025-12-31", poValue: 3836650.53,  expectedMonthlyRevenue: 319720.88 },
+  "ACES - NHP MS Project  O&M 2026": { contractStart: "2026-01-01", contractEnd: "2026-12-31", poValue: 4800000,     expectedMonthlyRevenue: 400000 },
+};
+
 export async function seedDemoData() {
   try {
-    // Check if demo data already exists
     const existing = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(revenueRecordsTable)
       .where(eq(revenueRecordsTable.isDemo, true));
 
     if ((existing[0]?.count ?? 0) > 0) {
-      logger.info("Demo data already seeded, skipping");
+      // Still update project baselines on every startup so PO values are always correct
+      const projectNames = [...new Set(SEED_ROWS.map((r) => r[0]))];
+      for (const name of projectNames) {
+        const baseline = PROJECT_BASELINES[name];
+        if (!baseline) continue;
+        await db
+          .update(projectsTable)
+          .set({
+            poValue: String(baseline.poValue),
+            expectedMonthlyRevenue: String(baseline.expectedMonthlyRevenue),
+            contractStart: baseline.contractStart,
+            contractEnd: baseline.contractEnd,
+            status: PROJECT_STATUS[name] ?? "ongoing",
+          })
+          .where(eq(projectsTable.name, name));
+      }
+      logger.info("Demo data already seeded, updated project baselines");
       return;
     }
 
     logger.info("Seeding demo data from ACES MSD Excel file...");
 
-    // Create projects
     const projectNames = [...new Set(SEED_ROWS.map((r) => r[0]))];
     const projectMap = new Map<string, number>();
 
     for (const name of projectNames) {
+      const baseline = PROJECT_BASELINES[name];
       const [proj] = await db
         .insert(projectsTable)
         .values({
           name,
           status: PROJECT_STATUS[name] ?? "ongoing",
+          contractStart: baseline?.contractStart ?? null,
+          contractEnd: baseline?.contractEnd ?? null,
+          poValue: String(baseline?.poValue ?? 0),
+          expectedMonthlyRevenue: String(baseline?.expectedMonthlyRevenue ?? 0),
         })
         .onConflictDoUpdate({
           target: projectsTable.name,
           set: {
             status: PROJECT_STATUS[name] ?? "ongoing",
+            contractStart: baseline?.contractStart ?? null,
+            contractEnd: baseline?.contractEnd ?? null,
+            poValue: String(baseline?.poValue ?? 0),
+            expectedMonthlyRevenue: String(baseline?.expectedMonthlyRevenue ?? 0),
           },
         })
         .returning({ id: projectsTable.id });
       projectMap.set(name, proj.id);
     }
 
-    // Insert records in batches
     const batchSize = 20;
     for (let i = 0; i < SEED_ROWS.length; i += batchSize) {
       const batch = SEED_ROWS.slice(i, i + batchSize);

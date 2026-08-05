@@ -265,6 +265,10 @@ export const ListProjectsResponseItem = zod.object({
   "status": zod.string(),
   "contractStart": zod.string().nullish(),
   "contractEnd": zod.string().nullish(),
+  "poValue": zod.number(),
+  "expectedMonthlyRevenue": zod.number(),
+  "totalExpectedRevenue": zod.number(),
+  "remainingPO": zod.number(),
   "totalWorkOrder": zod.number(),
   "totalRevenue": zod.number(),
   "totalDeductible": zod.number(),
@@ -290,7 +294,9 @@ export const CreateProjectBody = zod.object({
   "name": zod.string(),
   "status": zod.enum(['ongoing', 'completed', 'closed']),
   "contractStart": zod.string().nullish(),
-  "contractEnd": zod.string().nullish()
+  "contractEnd": zod.string().nullish(),
+  "poValue": zod.number().optional(),
+  "expectedMonthlyRevenue": zod.number().optional()
 })
 
 export const CreateProjectResponse = zod.object({
@@ -299,6 +305,8 @@ export const CreateProjectResponse = zod.object({
   "status": zod.enum(['ongoing', 'completed', 'closed']),
   "contractStart": zod.string().nullish(),
   "contractEnd": zod.string().nullish(),
+  "poValue": zod.number().optional(),
+  "expectedMonthlyRevenue": zod.number().optional(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -318,6 +326,10 @@ export const GetProjectResponse = zod.object({
   "status": zod.string(),
   "contractStart": zod.string().nullish(),
   "contractEnd": zod.string().nullish(),
+  "poValue": zod.number(),
+  "expectedMonthlyRevenue": zod.number(),
+  "totalExpectedRevenue": zod.number(),
+  "remainingPO": zod.number(),
   "totalWorkOrder": zod.number(),
   "totalRevenue": zod.number(),
   "totalDeductible": zod.number(),
@@ -337,6 +349,7 @@ export const GetProjectResponse = zod.object({
   "month": zod.string().describe('YYYY-MM'),
   "workOrder": zod.number(),
   "revenue": zod.number(),
+  "expectedRevenue": zod.number(),
   "invoiced": zod.number(),
   "collected": zod.number(),
   "netRevenue": zod.number()
@@ -382,7 +395,9 @@ export const UpdateProjectBody = zod.object({
   "name": zod.string().optional(),
   "status": zod.enum(['ongoing', 'completed', 'closed']).optional(),
   "contractStart": zod.string().nullish(),
-  "contractEnd": zod.string().nullish()
+  "contractEnd": zod.string().nullish(),
+  "poValue": zod.number().optional(),
+  "expectedMonthlyRevenue": zod.number().optional()
 })
 
 export const UpdateProjectResponse = zod.object({
@@ -391,6 +406,8 @@ export const UpdateProjectResponse = zod.object({
   "status": zod.enum(['ongoing', 'completed', 'closed']),
   "contractStart": zod.string().nullish(),
   "contractEnd": zod.string().nullish(),
+  "poValue": zod.number().optional(),
+  "expectedMonthlyRevenue": zod.number().optional(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional()
 })
@@ -426,6 +443,8 @@ export const GetDashboardSummaryResponse = zod.object({
   "totalOverdue": zod.number(),
   "totalPenalties": zod.number(),
   "totalNetRevenue": zod.number(),
+  "totalPoValue": zod.number(),
+  "totalExpectedRevenue": zod.number(),
   "collectionRate": zod.number(),
   "revenueAchievementRate": zod.number(),
   "invoiceConversionRate": zod.number(),
@@ -446,6 +465,7 @@ export const GetMonthlyTrendResponseItem = zod.object({
   "month": zod.string().describe('YYYY-MM'),
   "workOrder": zod.number(),
   "revenue": zod.number(),
+  "expectedRevenue": zod.number(),
   "invoiced": zod.number(),
   "collected": zod.number(),
   "netRevenue": zod.number()
@@ -467,7 +487,9 @@ export const GetProjectPerformanceResponseItem = zod.object({
   "revenueAchievementPct": zod.number(),
   "invoiced": zod.number(),
   "collected": zod.number(),
-  "outstanding": zod.number()
+  "outstanding": zod.number(),
+  "expectedRevenue": zod.number(),
+  "poValue": zod.number()
 })
 export const GetProjectPerformanceResponse = zod.array(GetProjectPerformanceResponseItem)
 

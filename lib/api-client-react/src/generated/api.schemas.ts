@@ -143,6 +143,8 @@ export interface Project {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
+  poValue?: number;
+  expectedMonthlyRevenue?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -163,6 +165,8 @@ export interface ProjectInput {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
+  poValue?: number;
+  expectedMonthlyRevenue?: number;
 }
 
 export type ProjectUpdateStatus = typeof ProjectUpdateStatus[keyof typeof ProjectUpdateStatus];
@@ -181,6 +185,8 @@ export interface ProjectUpdate {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
+  poValue?: number;
+  expectedMonthlyRevenue?: number;
 }
 
 export interface ProjectSummary {
@@ -191,6 +197,10 @@ export interface ProjectSummary {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
+  poValue: number;
+  expectedMonthlyRevenue: number;
+  totalExpectedRevenue: number;
+  remainingPO: number;
   totalWorkOrder: number;
   totalRevenue: number;
   totalDeductible: number;
@@ -214,6 +224,7 @@ export interface MonthlyTrendPoint {
   month: string;
   workOrder: number;
   revenue: number;
+  expectedRevenue: number;
   invoiced: number;
   collected: number;
   netRevenue: number;
@@ -235,6 +246,8 @@ export interface DashboardSummary {
   totalOverdue: number;
   totalPenalties: number;
   totalNetRevenue: number;
+  totalPoValue: number;
+  totalExpectedRevenue: number;
   collectionRate: number;
   revenueAchievementRate: number;
   invoiceConversionRate: number;
@@ -251,6 +264,8 @@ export interface ProjectPerformance {
   invoiced: number;
   collected: number;
   outstanding: number;
+  expectedRevenue: number;
+  poValue: number;
 }
 
 export interface AgingBucket {

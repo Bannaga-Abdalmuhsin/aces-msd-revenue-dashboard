@@ -11,6 +11,7 @@ export interface MonthlyTrendPoint {
   month: string;
   workOrder: number;
   revenue: number;
+  expectedRevenue: number;
   invoiced: number;
   collected: number;
   netRevenue: number;

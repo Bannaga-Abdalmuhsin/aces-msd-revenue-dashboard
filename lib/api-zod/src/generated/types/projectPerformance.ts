@@ -14,4 +14,6 @@ export interface ProjectPerformance {
   invoiced: number;
   collected: number;
   outstanding: number;
+  expectedRevenue: number;
+  poValue: number;
 }

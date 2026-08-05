@@ -14,6 +14,10 @@ export interface ProjectSummary {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
+  poValue: number;
+  expectedMonthlyRevenue: number;
+  totalExpectedRevenue: number;
+  remainingPO: number;
   totalWorkOrder: number;
   totalRevenue: number;
   totalDeductible: number;

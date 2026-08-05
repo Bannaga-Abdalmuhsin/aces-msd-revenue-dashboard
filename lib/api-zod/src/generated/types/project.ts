@@ -15,6 +15,8 @@ export interface Project {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
+  poValue?: number;
+  expectedMonthlyRevenue?: number;
   createdAt: string;
   updatedAt?: string;
 }

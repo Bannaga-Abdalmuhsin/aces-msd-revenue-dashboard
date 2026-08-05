@@ -651,6 +651,8 @@ components:
         status: { type: string, enum: [ongoing, completed, closed] }
         contractStart: { type: ["string", "null"] }
         contractEnd: { type: ["string", "null"] }
+        poValue: { type: number }
+        expectedMonthlyRevenue: { type: number }
         createdAt: { type: string }
         updatedAt: { type: string }
 
@@ -662,6 +664,8 @@ components:
         status: { type: string, enum: [ongoing, completed, closed] }
         contractStart: { type: ["string", "null"] }
         contractEnd: { type: ["string", "null"] }
+        poValue: { type: number }
+        expectedMonthlyRevenue: { type: number }
 
     ProjectUpdate:
       type: object
@@ -670,16 +674,22 @@ components:
         status: { type: string, enum: [ongoing, completed, closed] }
         contractStart: { type: ["string", "null"] }
         contractEnd: { type: ["string", "null"] }
+        poValue: { type: number }
+        expectedMonthlyRevenue: { type: number }
 
     ProjectSummary:
       type: object
-      required: [id, name, status, totalWorkOrder, totalRevenue, totalDeductible, totalInvoiced, totalCollected, totalOutstanding, totalOverdue, totalPenalties, totalNetRevenue, revenueAchievementPct, collectionPct, avgCollectionDays]
+      required: [id, name, status, totalWorkOrder, totalRevenue, totalDeductible, totalInvoiced, totalCollected, totalOutstanding, totalOverdue, totalPenalties, totalNetRevenue, revenueAchievementPct, collectionPct, avgCollectionDays, poValue, expectedMonthlyRevenue, totalExpectedRevenue, remainingPO]
       properties:
         id: { type: number }
         name: { type: string }
         status: { type: string }
         contractStart: { type: ["string", "null"] }
         contractEnd: { type: ["string", "null"] }
+        poValue: { type: number }
+        expectedMonthlyRevenue: { type: number }
+        totalExpectedRevenue: { type: number }
+        remainingPO: { type: number }
         totalWorkOrder: { type: number }
         totalRevenue: { type: number }
         totalDeductible: { type: number }
@@ -712,7 +722,7 @@ components:
 
     DashboardSummary:
       type: object
-      required: [totalWorkOrder, totalRevenue, totalDeductible, totalInvoiced, totalCollected, totalOutstanding, totalOverdue, totalPenalties, totalNetRevenue, collectionRate, revenueAchievementRate, invoiceConversionRate, avgCollectionDays, lastDataUpdate]
+      required: [totalWorkOrder, totalRevenue, totalDeductible, totalInvoiced, totalCollected, totalOutstanding, totalOverdue, totalPenalties, totalNetRevenue, totalPoValue, totalExpectedRevenue, collectionRate, revenueAchievementRate, invoiceConversionRate, avgCollectionDays, lastDataUpdate]
       properties:
         totalWorkOrder: { type: number }
         totalRevenue: { type: number }
@@ -723,6 +733,8 @@ components:
         totalOverdue: { type: number }
         totalPenalties: { type: number }
         totalNetRevenue: { type: number }
+        totalPoValue: { type: number }
+        totalExpectedRevenue: { type: number }
         collectionRate: { type: number }
         revenueAchievementRate: { type: number }
         invoiceConversionRate: { type: number }
@@ -731,18 +743,19 @@ components:
 
     MonthlyTrendPoint:
       type: object
-      required: [month, workOrder, revenue, invoiced, collected, netRevenue]
+      required: [month, workOrder, revenue, invoiced, collected, netRevenue, expectedRevenue]
       properties:
         month: { type: string, description: "YYYY-MM" }
         workOrder: { type: number }
         revenue: { type: number }
+        expectedRevenue: { type: number }
         invoiced: { type: number }
         collected: { type: number }
         netRevenue: { type: number }
 
     ProjectPerformance:
       type: object
-      required: [projectName, workOrder, revenue, revenueAchievementPct, invoiced, collected, outstanding]
+      required: [projectName, workOrder, revenue, revenueAchievementPct, invoiced, collected, outstanding, expectedRevenue, poValue]
       properties:
         projectName: { type: string }
         workOrder: { type: number }
@@ -751,6 +764,8 @@ components:
         invoiced: { type: number }
         collected: { type: number }
         outstanding: { type: number }
+        expectedRevenue: { type: number }
+        poValue: { type: number }
 
     AgingBucket:
       type: object
