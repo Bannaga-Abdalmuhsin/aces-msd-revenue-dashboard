@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "ACES Revenue Dashboard"
+description = "A comprehensive financial dashboard for the ACES Managed Services Department. Provides management with a full view of project revenue, invoicing, collections, outstanding payments, deductibles, penalties, and financial performance. Supports Excel/CSV import, interactive charts, KPI cards, project performance tracking, invoice register, data validation, and export to Excel/PDF."
+version = "1.0.0"
+id = "artifacts/aces-dashboard"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20058
+
+[services.development]
+run = "pnpm --filter @workspace/aces-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/aces-dashboard", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/aces-dashboard/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20058"
+BASE_PATH = "/"

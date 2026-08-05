@@ -1,0 +1,479 @@
+Build a modern, responsive web dashboard titled:
+
+“ACES Managed Services Department – Project Revenue Dashboard”
+
+PURPOSE
+
+The dashboard must import and visualize the ACES Managed Services Department’s Excel revenue sheet. It should provide management with a comprehensive view of project revenue, invoicing, collections, outstanding payments, deductions, penalties, and financial performance.
+
+DATA SOURCE
+
+Allow users to:
+
+1. Upload an Excel or CSV file.
+2. Validate and preview imported records before saving.
+3. Map columns automatically using these exact headers:
+
+   * Project
+   * Date
+   * Work Order
+   * Revenue
+   * Deductible
+   * Invoiced
+   * Invoice Date
+   * Invoice No
+   * Due Date
+   * Collected
+   * Collected Date
+   * Days
+   * Penalties
+   * Net Revenue
+4. Add, edit, or delete records manually.
+5. Export filtered data and reports to Excel and PDF.
+6. Retain historical uploaded data without creating duplicate records.
+
+COLUMN DEFINITIONS AND BUSINESS RULES
+
+1. Project
+
+   * Name of the ongoing, completed, or closed project.
+   * Add a separate project status field:
+
+     * Ongoing
+     * Completed
+     * Closed
+
+2. Date
+
+   * This is the revenue recognition month.
+   * The imported Excel value may be a complete date such as 10/30/2023.
+   * Display it throughout the dashboard as “Oct 2023”.
+   * Use this field for monthly and annual revenue analysis.
+   * Do not confuse it with Invoice Date or Collected Date.
+
+3. Work Order
+
+   * Represents the expected monthly contractual value.
+   * Example: A SAR 36,000,000 contract running for 36 months has a monthly Work Order value of SAR 1,000,000.
+
+4. Revenue
+
+   * Revenue earned based on completed work or approved Bill of Deliverables (BOD).
+
+5. Deductible
+
+   * Value of incomplete or undelivered work included in the Work Order.
+   * Calculate the operational gap as:
+     Work Order − Revenue
+   * Do not automatically replace the imported Deductible value.
+   * Show a warning when the imported Deductible differs materially from Work Order − Revenue.
+
+6. Invoiced
+
+   * Amount officially submitted to the customer for payment.
+
+7. Invoice Date
+
+   * Exact date on which the invoice was submitted.
+   * Display as DD/MM/YYYY.
+   * Keep it separate from the monthly revenue Date.
+
+8. Invoice No
+
+   * Unique invoice reference number.
+   * Prevent duplicate invoice numbers unless the user confirms that the duplication is intentional.
+
+9. Due Date
+
+   * Expected payment date.
+   * Default calculation:
+     Invoice Date + 60 calendar days
+   * If the invoice is fully collected, the Due Date may be blank in the imported sheet.
+   * Preserve imported due dates when provided.
+   * Do not automatically clear historical due dates unless requested.
+   * Use the Collected amount to determine payment status.
+
+10. Collected
+
+    * Amount actually received in the company’s bank account.
+
+11. Collected Date
+
+    * Exact date the payment was received.
+    * Display as DD/MM/YYYY.
+
+12. Days
+
+    * For collected invoices:
+      Collected Date − Invoice Date
+    * For unpaid or partially paid invoices, provide a separate live “Outstanding Age”:
+      Current Date − Invoice Date
+    * Do not overwrite an imported Days value without confirmation.
+
+13. Penalties
+
+    * Amount deducted from the invoice as a customer penalty.
+
+14. Net Revenue
+
+    * Net amount received after penalties.
+    * Default validation formula:
+      Collected − Penalties
+    * Preserve imported Net Revenue values.
+    * Highlight any difference between the imported amount and the calculated value.
+
+PAYMENT STATUS LOGIC
+
+Determine invoice status automatically:
+
+* Not Invoiced:
+  Invoiced is zero or empty.
+
+* Invoiced – Not Due:
+  Invoiced is greater than zero, Collected is zero, and Due Date is today or later.
+
+* Due Soon:
+  Outstanding invoice is due within the next 15 days.
+
+* Overdue:
+  Collected is less than Invoiced and Due Date is before today.
+
+* Partially Collected:
+  Collected is greater than zero but less than Invoiced.
+
+* Fully Collected:
+  Collected is equal to or greater than Invoiced.
+
+* Collected Late:
+  Fully collected but Collected Date is after Due Date.
+
+* Collected on Time:
+  Fully collected on or before Due Date.
+
+For financial comparisons, use a small tolerance of SAR 1 to avoid rounding errors.
+
+MAIN DASHBOARD
+
+Create a professional executive dashboard with the following KPI cards:
+
+* Total Work Order Value
+* Total Recognized Revenue
+* Total Deductibles
+* Total Invoiced
+* Total Collected
+* Total Outstanding
+* Total Overdue
+* Total Penalties
+* Total Net Revenue
+* Collection Rate
+* Revenue Achievement Rate
+* Invoice Conversion Rate
+* Average Collection Days
+
+FORMULAS
+
+* Outstanding Amount = Maximum of (Invoiced − Collected, 0)
+* Overdue Amount = Outstanding Amount where Due Date is before today
+* Revenue Achievement Rate = Revenue ÷ Work Order × 100
+* Deductible Rate = Deductible ÷ Work Order × 100
+* Invoice Conversion Rate = Invoiced ÷ Revenue × 100
+* Collection Rate = Collected ÷ Invoiced × 100
+* Penalty Rate = Penalties ÷ Invoiced × 100
+* Net Collection Rate = Net Revenue ÷ Invoiced × 100
+* Average Collection Days = Average Days for collected invoices only
+
+Handle zero and blank denominators safely. Never show “Infinity”, “NaN”, or calculation errors.
+
+EXECUTIVE CHARTS
+
+Include these interactive charts:
+
+1. Monthly Financial Performance
+
+   * Work Order
+   * Revenue
+   * Invoiced
+   * Collected
+   * Net Revenue
+   * Displayed by month.
+
+2. Revenue Waterfall
+
+   * Work Order
+   * Less Deductibles
+   * Recognized Revenue
+   * Invoiced
+   * Less Penalties
+   * Net Revenue
+
+3. Revenue Performance by Project
+
+   * Work Order versus Revenue.
+   * Show achievement percentage.
+
+4. Invoice and Collection by Project
+
+   * Invoiced versus Collected versus Outstanding.
+
+5. Outstanding Aging
+
+   * Not Due
+   * 1–30 days overdue
+   * 31–60 days overdue
+   * 61–90 days overdue
+   * More than 90 days overdue
+
+6. Monthly Collection Trend
+
+   * Collected amount grouped by Collected Date month.
+
+7. Deductibles and Penalties by Project
+
+8. Project Contribution
+
+   * Percentage contribution of each project to total Net Revenue.
+
+9. Payment Status Distribution
+
+   * Count and value of invoices by payment status.
+
+10. Revenue Achievement Heatmap
+
+    * Projects as rows.
+    * Months as columns.
+    * Color based on Revenue ÷ Work Order.
+
+PROJECT PERFORMANCE PAGE
+
+Create a dedicated page with one row or card per project showing:
+
+* Project name
+* Project status
+* Contract or reporting period
+* Total Work Order
+* Total Revenue
+* Total Deductible
+* Total Invoiced
+* Total Collected
+* Outstanding amount
+* Overdue amount
+* Penalties
+* Net Revenue
+* Revenue achievement percentage
+* Collection percentage
+* Average collection days
+* Latest revenue month
+* Latest invoice date
+
+Allow the user to click any project to open a detailed project view containing its monthly trend, invoices, collections, deductions, penalties, and outstanding balance.
+
+INVOICE AND COLLECTION PAGE
+
+Create a detailed invoice register with:
+
+* Invoice No
+* Project
+* Revenue Month
+* Invoice Date
+* Due Date
+* Invoiced Amount
+* Collected Amount
+* Outstanding Amount
+* Collected Date
+* Collection Days
+* Outstanding Age
+* Penalties
+* Net Revenue
+* Payment Status
+
+Add conditional formatting:
+
+* Red: overdue
+* Amber: due within 15 days or partially collected
+* Green: fully collected
+* Grey: not invoiced
+* Blue: invoiced but not yet due
+
+Include a search box for Invoice No and Project.
+
+FILTERS
+
+Add global filters that update all KPIs, charts, and tables:
+
+* Project
+* Project Status
+* Revenue month
+* Revenue year
+* Custom date range
+* Invoice Status
+* Invoice Date
+* Due Date
+* Collected Date
+* Overdue status
+* Invoice number
+
+Provide:
+
+* Apply Filters
+* Clear Filters
+* Save View
+* Export Filtered Report
+
+MANAGEMENT INSIGHTS
+
+Add an automated insights panel that highlights:
+
+* Projects below 90% revenue achievement.
+* Projects with high deductibles.
+* Projects with unbilled recognized revenue.
+* Revenue invoiced but not collected.
+* Invoices due within 15 days.
+* Overdue invoices.
+* Invoices overdue by more than 60 or 90 days.
+* Projects with the highest penalties.
+* Projects with slow collection performance.
+* Differences between imported values and calculated validation values.
+
+Show concise insights such as:
+
+“Project X has SAR 1.2M outstanding, of which SAR 750K is overdue by more than 60 days.”
+
+Do not use AI-generated financial conclusions unless they are based directly on the uploaded data.
+
+DATA QUALITY CHECKS
+
+Create a validation center that detects:
+
+* Missing project names
+* Invalid dates
+* Duplicate invoice numbers
+* Collected amount greater than invoiced amount
+* Collected amount entered without a collected date
+* Collected date earlier than invoice date
+* Due date earlier than invoice date
+* Invoice date entered without an invoice amount
+* Revenue greater than Work Order
+* Negative financial values
+* Net Revenue not equal to Collected − Penalties
+* Days not equal to Collected Date − Invoice Date
+* Invoice not fully collected but Due Date is blank
+* Revenue month outside the project’s contract period
+
+Allow warnings to be reviewed and corrected without blocking the entire import.
+
+USER INTERFACE AND DESIGN
+
+Use a premium corporate dashboard design suitable for ACES senior management.
+
+Design direction:
+
+* Clean, modern, and executive.
+* White or very light grey background.
+* ACES-inspired blue as the primary color.
+* Dark navy for headings and navigation.
+* Green for collected and positive performance.
+* Amber for approaching due dates.
+* Red for overdue amounts, penalties, and critical gaps.
+* Use SAR as the currency label.
+* Format large values clearly, such as:
+
+  * SAR 950K
+  * SAR 2.45M
+  * SAR 36.0M
+* Provide a tooltip or toggle to display exact amounts.
+* Responsive on desktop, tablet, and mobile.
+* Include a collapsible left navigation menu.
+* Use readable charts with legends and tooltips.
+* Add a light/dark mode toggle.
+* Do not overcrowd the main dashboard.
+
+NAVIGATION
+
+Use these sections:
+
+1. Executive Overview
+2. Project Performance
+3. Revenue Analysis
+4. Invoice & Collections
+5. Outstanding Aging
+6. Deductibles & Penalties
+7. Monthly Forecast
+8. Data Validation
+9. Import & Export
+10. Administration
+
+FORECAST PAGE
+
+Create a simple forecast based only on available data:
+
+* Expected collections by Due Date month.
+* Outstanding invoices expected in the next 30, 60, and 90 days.
+* Monthly Work Order forecast.
+* Work Order versus actual Revenue forecast.
+* Clearly label projected values as “Forecast” and historical values as “Actual”.
+* Do not mix forecast amounts with actual collected revenue.
+
+SECURITY AND ACCESS
+
+Implement role-based access:
+
+* Administrator:
+  Full access, upload, edit, delete, manage users and settings.
+
+* Finance User:
+  Upload, edit, validate, and export financial records.
+
+* Project Manager:
+  View assigned projects and add operational comments.
+
+* Executive Viewer:
+  Read-only access to dashboards and reports.
+
+Maintain an audit log showing:
+
+* User
+* Action
+* Record affected
+* Previous value
+* New value
+* Date and time
+
+TECHNICAL REQUIREMENTS
+
+* Build the application using a modern React interface.
+* Use TypeScript.
+* Use a reliable chart library such as Recharts.
+* Use a structured relational database.
+* Store money using decimal or integer halala values, not floating-point approximations.
+* Support Excel .xlsx and CSV uploads.
+* Correctly parse Excel serial dates and normal date strings.
+* Store dates internally in ISO format.
+* Display revenue month as MMM YYYY.
+* Display exact transaction dates as DD/MM/YYYY.
+* Use Asia/Riyadh as the default timezone.
+* Use server-side validation for all financial data.
+* Provide loading, empty, error, and success states.
+* Seed the system with clearly labelled demonstration data.
+* Allow demonstration data to be removed before importing the real Excel sheet.
+
+IMPORTANT IMPLEMENTATION RULES
+
+* Do not invent financial data.
+* Do not treat blank cells as zero unless appropriate.
+* Preserve imported source values.
+* Keep calculated fields separate from imported fields for validation.
+* Clearly distinguish Revenue Month, Invoice Date, Due Date, and Collected Date.
+* All dashboard totals must respond to the active filters.
+* Clicking a KPI or chart segment should open the relevant filtered records.
+* Add “Last Data Update” date and time to the dashboard.
+* The dashboard must be suitable for real departmental financial monitoring, not only a static visual demonstration.
+
+Before coding, first produce:
+
+1. Proposed database schema.
+2. Page and navigation structure.
+3. Calculation and status logic.
+4. Dashboard wireframe.
+5. Excel import and validation flow.
+
+After presenting this structure, proceed to build the complete working dashboard.
