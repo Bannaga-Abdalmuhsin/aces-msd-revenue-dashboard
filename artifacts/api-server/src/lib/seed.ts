@@ -104,23 +104,6 @@ const PROJECT_STATUS: Record<string, "ongoing" | "completed" | "closed"> = {
   "ACES - NHP MS Project  O&M 2026": "ongoing",
 };
 
-// Projects that use the 90/10 BOD retention split
-const RETENTION_CONFIG: Record<string, { retentionApplicable: boolean; releasePercentage: number }> = {
-  "STC COW": { retentionApplicable: true, releasePercentage: 90 },
-};
-
-// Records where the initial 90% has been fully collected get no bodStatus (retention already resolved).
-// Outstanding STC COW records (2025 invoices with collected=0) default to Pending.
-const BOD_STATUS_OVERRIDE: Record<string, string> = {
-  // Months that are still outstanding → Pending BOD
-  "STC COW:2025-01-01": "Pending",
-  "STC COW:2025-02-01": "Pending",
-  "STC COW:2025-03-01": "Pending",
-  "STC COW:2025-04-01": "Pending",
-  "STC COW:2025-05-01": "Pending",
-  "STC COW:2025-06-01": "Pending",
-};
-
 export async function seedDemoData() {
   try {
     // Check if demo data already exists
@@ -141,21 +124,16 @@ export async function seedDemoData() {
     const projectMap = new Map<string, number>();
 
     for (const name of projectNames) {
-      const retCfg = RETENTION_CONFIG[name] ?? { retentionApplicable: false, releasePercentage: 90 };
       const [proj] = await db
         .insert(projectsTable)
         .values({
           name,
           status: PROJECT_STATUS[name] ?? "ongoing",
-          retentionApplicable: retCfg.retentionApplicable,
-          releasePercentage: String(retCfg.releasePercentage),
         })
         .onConflictDoUpdate({
           target: projectsTable.name,
           set: {
             status: PROJECT_STATUS[name] ?? "ongoing",
-            retentionApplicable: retCfg.retentionApplicable,
-            releasePercentage: String(retCfg.releasePercentage),
           },
         })
         .returning({ id: projectsTable.id });
@@ -167,28 +145,24 @@ export async function seedDemoData() {
     for (let i = 0; i < SEED_ROWS.length; i += batchSize) {
       const batch = SEED_ROWS.slice(i, i + batchSize);
       await db.insert(revenueRecordsTable).values(
-        batch.map(([pName, revMonth, wo, rv, ded, inv, invDate, invNo, dueDate, coll, collDate, days, pen, nr]) => {
-          const bodStatus = BOD_STATUS_OVERRIDE[`${pName}:${revMonth}`] ?? null;
-          return {
-            projectId: projectMap.get(pName) ?? null,
-            projectName: pName,
-            revenueMonth: revMonth,
-            workOrder: String(wo),
-            revenue: String(rv),
-            deductible: String(ded),
-            invoiced: String(inv),
-            invoiceDate: invDate ?? null,
-            invoiceNo: invNo ?? null,
-            dueDate: dueDate ?? null,
-            collected: String(coll),
-            collectedDate: collDate ?? null,
-            days: days ?? null,
-            penalties: String(pen),
-            netRevenue: String(nr),
-            bodStatus,
-            isDemo: true,
-          };
-        }),
+        batch.map(([pName, revMonth, wo, rv, ded, inv, invDate, invNo, dueDate, coll, collDate, days, pen, nr]) => ({
+          projectId: projectMap.get(pName) ?? null,
+          projectName: pName,
+          revenueMonth: revMonth,
+          workOrder: String(wo),
+          revenue: String(rv),
+          deductible: String(ded),
+          invoiced: String(inv),
+          invoiceDate: invDate ?? null,
+          invoiceNo: invNo ?? null,
+          dueDate: dueDate ?? null,
+          collected: String(coll),
+          collectedDate: collDate ?? null,
+          days: days ?? null,
+          penalties: String(pen),
+          netRevenue: String(nr),
+          isDemo: true,
+        })),
       );
     }
 

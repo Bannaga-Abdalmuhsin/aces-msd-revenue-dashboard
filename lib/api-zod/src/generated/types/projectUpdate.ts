@@ -14,6 +14,4 @@ export interface ProjectUpdate {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
-  retentionApplicable?: boolean;
-  releasePercentage?: number;
 }

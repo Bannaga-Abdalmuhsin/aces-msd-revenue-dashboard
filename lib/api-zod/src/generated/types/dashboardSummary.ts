@@ -16,7 +16,6 @@ export interface DashboardSummary {
   totalOverdue: number;
   totalPenalties: number;
   totalNetRevenue: number;
-  totalPendingRetention: number;
   collectionRate: number;
   revenueAchievementRate: number;
   invoiceConversionRate: number;

@@ -42,25 +42,6 @@ export interface RevenueRecord {
   deductibleVariance?: number | null;
   /** @nullable */
   netRevenueVariance?: number | null;
-  retentionApplicable?: boolean;
-  releasePercentage?: number;
-  initialReleaseAmount?: number;
-  retainedAmount?: number;
-  /**
-     * Withheld | Eligible for Release | Invoiced | Collected
-     * @nullable
-     */
-  retentionStatus?: string | null;
-  pendingRetention?: number;
-  /**
-     * Pending | Submitted | Approved | Signed
-     * @nullable
-     */
-  bodStatus?: string | null;
-  /** @nullable */
-  bodCompletionDate?: string | null;
-  /** @nullable */
-  retentionReleaseDate?: string | null;
   isDemo: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -86,12 +67,6 @@ export interface RecordInput {
   days?: number | null;
   penalties?: number;
   netRevenue?: number;
-  /** @nullable */
-  bodStatus?: string | null;
-  /** @nullable */
-  bodCompletionDate?: string | null;
-  /** @nullable */
-  retentionReleaseDate?: string | null;
   isDemo?: boolean;
 }
 
@@ -115,12 +90,6 @@ export interface RecordUpdate {
   days?: number | null;
   penalties?: number;
   netRevenue?: number;
-  /** @nullable */
-  bodStatus?: string | null;
-  /** @nullable */
-  bodCompletionDate?: string | null;
-  /** @nullable */
-  retentionReleaseDate?: string | null;
 }
 
 export interface RecordListResponse {
@@ -174,8 +143,6 @@ export interface Project {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
-  retentionApplicable?: boolean;
-  releasePercentage?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -196,8 +163,6 @@ export interface ProjectInput {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
-  retentionApplicable?: boolean;
-  releasePercentage?: number;
 }
 
 export type ProjectUpdateStatus = typeof ProjectUpdateStatus[keyof typeof ProjectUpdateStatus];
@@ -216,8 +181,6 @@ export interface ProjectUpdate {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
-  retentionApplicable?: boolean;
-  releasePercentage?: number;
 }
 
 export interface ProjectSummary {
@@ -228,8 +191,6 @@ export interface ProjectSummary {
   contractStart?: string | null;
   /** @nullable */
   contractEnd?: string | null;
-  retentionApplicable?: boolean;
-  releasePercentage?: number;
   totalWorkOrder: number;
   totalRevenue: number;
   totalDeductible: number;
@@ -239,8 +200,6 @@ export interface ProjectSummary {
   totalOverdue: number;
   totalPenalties: number;
   totalNetRevenue: number;
-  totalRetained?: number;
-  totalPendingRetention?: number;
   revenueAchievementPct: number;
   collectionPct: number;
   avgCollectionDays: number;
@@ -276,7 +235,6 @@ export interface DashboardSummary {
   totalOverdue: number;
   totalPenalties: number;
   totalNetRevenue: number;
-  totalPendingRetention: number;
   collectionRate: number;
   revenueAchievementRate: number;
   invoiceConversionRate: number;

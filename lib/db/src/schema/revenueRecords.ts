@@ -23,11 +23,6 @@ export const revenueRecordsTable = pgTable("revenue_records", {
   days: integer("days"),
   penalties: numeric("penalties", { precision: 20, scale: 4 }).notNull().default("0"),
   netRevenue: numeric("net_revenue", { precision: 20, scale: 4 }).notNull().default("0"),
-  // BOD / Retention fields
-  bodStatus: text("bod_status"),   // Pending | Submitted | Approved | Signed | null (non-retention projects)
-  bodCompletionDate: date("bod_completion_date", { mode: "string" }),
-  retentionReleaseDate: date("retention_release_date", { mode: "string" }),
-  // -----
   isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })

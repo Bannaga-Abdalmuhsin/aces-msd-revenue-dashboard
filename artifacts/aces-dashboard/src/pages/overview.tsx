@@ -13,7 +13,6 @@ import {
   Target,
   Repeat,
   Timer,
-  Lock,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -125,7 +124,6 @@ export default function OverviewPage() {
         { label: 'Achievement Rate', value: formatPercent(summary.revenueAchievementRate), icon: Target, href: '/revenue', accent: 'primary' as const },
         { label: 'Invoice Conversion', value: formatPercent(summary.invoiceConversionRate), icon: Repeat, href: '/invoices', accent: 'chart-3' as const },
         { label: 'Avg Collection Days', value: formatDays(summary.avgCollectionDays), icon: Timer, href: '/aging', accent: 'primary' as const },
-        { label: 'Pending Retention', value: formatSAR(summary.totalPendingRetention ?? 0), exact: summary.totalPendingRetention ?? 0, icon: Lock, href: '/projects', accent: 'chart-3' as const },
       ]
     : [];
 

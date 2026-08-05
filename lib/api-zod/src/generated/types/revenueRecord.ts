@@ -39,25 +39,6 @@ export interface RevenueRecord {
   deductibleVariance?: number | null;
   /** @nullable */
   netRevenueVariance?: number | null;
-  retentionApplicable?: boolean;
-  releasePercentage?: number;
-  initialReleaseAmount?: number;
-  retainedAmount?: number;
-  /**
-     * Withheld | Eligible for Release | Invoiced | Collected
-     * @nullable
-     */
-  retentionStatus?: string | null;
-  pendingRetention?: number;
-  /**
-     * Pending | Submitted | Approved | Signed
-     * @nullable
-     */
-  bodStatus?: string | null;
-  /** @nullable */
-  bodCompletionDate?: string | null;
-  /** @nullable */
-  retentionReleaseDate?: string | null;
   isDemo: boolean;
   createdAt?: string;
   updatedAt?: string;

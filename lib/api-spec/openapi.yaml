@@ -555,15 +555,6 @@ components:
         outstandingAgeDays: { type: ["number", "null"] }
         deductibleVariance: { type: ["number", "null"] }
         netRevenueVariance: { type: ["number", "null"] }
-        retentionApplicable: { type: boolean }
-        releasePercentage: { type: number }
-        initialReleaseAmount: { type: number }
-        retainedAmount: { type: number }
-        retentionStatus: { type: ["string", "null"], description: "Withheld | Eligible for Release | Invoiced | Collected" }
-        pendingRetention: { type: number }
-        bodStatus: { type: ["string", "null"], description: "Pending | Submitted | Approved | Signed" }
-        bodCompletionDate: { type: ["string", "null"] }
-        retentionReleaseDate: { type: ["string", "null"] }
         isDemo: { type: boolean }
         createdAt: { type: string }
         updatedAt: { type: string }
@@ -586,9 +577,6 @@ components:
         days: { type: ["number", "null"] }
         penalties: { type: number }
         netRevenue: { type: number }
-        bodStatus: { type: ["string", "null"] }
-        bodCompletionDate: { type: ["string", "null"] }
-        retentionReleaseDate: { type: ["string", "null"] }
         isDemo: { type: boolean }
 
     RecordUpdate:
@@ -608,9 +596,6 @@ components:
         days: { type: ["number", "null"] }
         penalties: { type: number }
         netRevenue: { type: number }
-        bodStatus: { type: ["string", "null"] }
-        bodCompletionDate: { type: ["string", "null"] }
-        retentionReleaseDate: { type: ["string", "null"] }
 
     RecordListResponse:
       type: object
@@ -666,8 +651,6 @@ components:
         status: { type: string, enum: [ongoing, completed, closed] }
         contractStart: { type: ["string", "null"] }
         contractEnd: { type: ["string", "null"] }
-        retentionApplicable: { type: boolean }
-        releasePercentage: { type: number }
         createdAt: { type: string }
         updatedAt: { type: string }
 
@@ -679,8 +662,6 @@ components:
         status: { type: string, enum: [ongoing, completed, closed] }
         contractStart: { type: ["string", "null"] }
         contractEnd: { type: ["string", "null"] }
-        retentionApplicable: { type: boolean }
-        releasePercentage: { type: number }
 
     ProjectUpdate:
       type: object
@@ -689,8 +670,6 @@ components:
         status: { type: string, enum: [ongoing, completed, closed] }
         contractStart: { type: ["string", "null"] }
         contractEnd: { type: ["string", "null"] }
-        retentionApplicable: { type: boolean }
-        releasePercentage: { type: number }
 
     ProjectSummary:
       type: object
@@ -701,8 +680,6 @@ components:
         status: { type: string }
         contractStart: { type: ["string", "null"] }
         contractEnd: { type: ["string", "null"] }
-        retentionApplicable: { type: boolean }
-        releasePercentage: { type: number }
         totalWorkOrder: { type: number }
         totalRevenue: { type: number }
         totalDeductible: { type: number }
@@ -712,8 +689,6 @@ components:
         totalOverdue: { type: number }
         totalPenalties: { type: number }
         totalNetRevenue: { type: number }
-        totalRetained: { type: number }
-        totalPendingRetention: { type: number }
         revenueAchievementPct: { type: number }
         collectionPct: { type: number }
         avgCollectionDays: { type: number }
@@ -737,7 +712,7 @@ components:
 
     DashboardSummary:
       type: object
-      required: [totalWorkOrder, totalRevenue, totalDeductible, totalInvoiced, totalCollected, totalOutstanding, totalOverdue, totalPenalties, totalNetRevenue, collectionRate, revenueAchievementRate, invoiceConversionRate, avgCollectionDays, totalPendingRetention, lastDataUpdate]
+      required: [totalWorkOrder, totalRevenue, totalDeductible, totalInvoiced, totalCollected, totalOutstanding, totalOverdue, totalPenalties, totalNetRevenue, collectionRate, revenueAchievementRate, invoiceConversionRate, avgCollectionDays, lastDataUpdate]
       properties:
         totalWorkOrder: { type: number }
         totalRevenue: { type: number }
@@ -748,7 +723,6 @@ components:
         totalOverdue: { type: number }
         totalPenalties: { type: number }
         totalNetRevenue: { type: number }
-        totalPendingRetention: { type: number }
         collectionRate: { type: number }
         revenueAchievementRate: { type: number }
         invoiceConversionRate: { type: number }
