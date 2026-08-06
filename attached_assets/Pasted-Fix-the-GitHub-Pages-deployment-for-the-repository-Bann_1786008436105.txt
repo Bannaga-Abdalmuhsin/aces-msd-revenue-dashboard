@@ -1,0 +1,148 @@
+Fix the GitHub Pages deployment for the repository:
+
+Bannaga-Abdalmuhsin/aces-msd-revenue-dashboard
+
+ROOT CAUSE
+
+The current GitHub Actions workflow incorrectly uses Jekyll and publishes the repository root. The React/Vite application is located at:
+
+artifacts/aces-dashboard
+
+Its generated production output is:
+
+artifacts/aces-dashboard/dist/public
+
+Therefore, GitHub Pages currently receives no valid root index.html and returns a 404.
+
+REQUIRED CHANGES
+
+1. Delete this incorrect workflow:
+
+.github/workflows/jekyll-gh-pages.yml
+
+2. Create:
+
+.github/workflows/deploy-pages.yml
+
+3. Use pnpm to install and build the Vite frontend.
+
+4. During the build, set:
+
+PORT=4173
+BASE_PATH=/aces-msd-revenue-dashboard/
+
+5. Upload only:
+
+artifacts/aces-dashboard/dist/public
+
+6. Do not upload the repository root.
+
+7. Configure the Vite base path as:
+
+/aces-msd-revenue-dashboard/
+
+8. Create a 404.html copy of the compiled index.html so client-side routes work when refreshed.
+
+9. Ensure all assets, favicon paths, JavaScript bundles, CSS files, images, and API URLs work under the repository subpath.
+
+USE THIS WORKFLOW
+
+name: Deploy ACES Dashboard to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build dashboard
+        env:
+          NODE_ENV: production
+          PORT: 4173
+          BASE_PATH: /aces-msd-revenue-dashboard/
+        run: pnpm --filter @workspace/aces-dashboard build
+
+      - name: Add SPA fallback
+        run: cp artifacts/aces-dashboard/dist/public/index.html artifacts/aces-dashboard/dist/public/404.html
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/aces-dashboard/dist/public
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+IMPORTANT BACKEND LIMITATION
+
+GitHub Pages cannot run:
+
+- Express
+- PostgreSQL
+- Server-side API routes
+- Authentication sessions
+- Database imports
+
+If the dashboard depends on artifacts/api-server, keep the backend deployed on Replit or another server and configure the frontend with the public API URL.
+
+Do not point production API calls to localhost.
+
+If the dashboard should work completely on GitHub Pages without a backend, convert it to a static client-side application that reads the included CSV and stores updates in the browser. Clearly explain that browser storage is device-specific and not a shared database.
+
+FINAL VERIFICATION
+
+After implementing:
+
+1. Run the production build locally.
+2. Confirm dist/public/index.html exists.
+3. Confirm compiled assets use /aces-msd-revenue-dashboard/.
+4. Push the workflow to main.
+5. Confirm the Pages Action succeeds.
+6. Open:
+   https://bannaga-abdalmuhsin.github.io/aces-msd-revenue-dashboard/
+7. Confirm direct route refreshes do not return 404.
+8. Confirm there are no browser-console asset or API errors.
