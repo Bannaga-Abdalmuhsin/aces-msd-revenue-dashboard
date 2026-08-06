@@ -15,12 +15,35 @@ const router: IRouter = Router();
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
+/**
+ * Build the public base URL for OData context links.
+ * Priority:
+ *   1. ODATA_BASE_URL env var (explicit override for production)
+ *   2. x-forwarded-proto / x-forwarded-host headers (Replit proxy)
+ *   3. Fallback to req.protocol + req.hostname
+ *
+ * Result includes the /api mount prefix so context URLs resolve correctly,
+ * e.g. https://myapp.replit.app/api
+ */
 function baseUrl(req: Request): string {
-  const proto = req.headers["x-forwarded-proto"] ?? req.protocol ?? "https";
-  const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost";
-  // Strip trailing /odata/* so we always get the API root
-  const path = req.baseUrl || "";
-  return `${proto}://${host}${path}`;
+  if (process.env.ODATA_BASE_URL) return process.env.ODATA_BASE_URL.replace(/\/$/, "");
+
+  // x-forwarded-proto may be a comma-list; take the first value
+  const rawProto = req.headers["x-forwarded-proto"];
+  const proto = (Array.isArray(rawProto) ? rawProto[0] : rawProto)?.split(",")[0]?.trim() ?? req.protocol ?? "https";
+
+  const rawHost = req.headers["x-forwarded-host"];
+  const host = (Array.isArray(rawHost) ? rawHost[0] : rawHost)?.trim() ?? req.headers.host ?? req.hostname;
+
+  const mountPath = req.baseUrl || ""; // e.g. "/api"
+  return `${proto}://${host}${mountPath}`;
+}
+
+/** OData Content-Type required by Power BI and strict OData clients */
+const ODATA_CT = "application/json;odata.metadata=minimal;odata.streaming=true;IEEE754Compatible=false;charset=utf-8";
+
+function sendOData(res: Response, body: unknown): void {
+  res.set("Content-Type", ODATA_CT).json(body);
 }
 
 function odataContext(req: Request, entity: string): string {
@@ -98,7 +121,7 @@ function applyFilter(
 // ── Service document ─────────────────────────────────────────────────────────
 
 router.get(["/odata", "/odata/"], (req: Request, res: Response) => {
-  res.json({
+  sendOData(res, {
     "@odata.context": `${baseUrl(req)}/odata/$metadata`,
     value: [
       { name: "RevenueRecords", kind: "EntitySet", url: "RevenueRecords" },
@@ -199,7 +222,7 @@ router.get("/odata/RevenueRecords", async (req: Request, res: Response): Promise
   };
   if (count) response["@odata.count"] = totalCount;
 
-  res.json(response);
+  sendOData(res, response);
 });
 
 // ── Projects entity set ──────────────────────────────────────────────────────
@@ -235,7 +258,7 @@ router.get("/odata/Projects", async (req: Request, res: Response): Promise<void>
   };
   if (count) response["@odata.count"] = totalCount;
 
-  res.json(response);
+  sendOData(res, response);
 });
 
 export default router;
