@@ -84,13 +84,21 @@ const SEED_ROWS: Array<[string, string, number, number, number, number, string |
   ["STC WiFi","2025-04-01",1785714.286,1785714.286,0,1785714.286,"2025-07-01","IN-025493",null,0,null,null,0,0],
   ["STC WiFi","2025-05-01",1785714.286,1785714.286,0,1785714.286,"2025-07-01","IN-025494",null,0,null,null,0,0],
   ["STC WiFi","2025-06-01",1785714.286,1785714.286,0,0,null,null,null,0,null,null,0,0],
-  ["ACES - NHP MS Project  O&M 2025","2025-01-01",2583333.333,2583333.333,0,2583333.333,"2025-03-20","IN-025382",null,2583333.333,"2025-05-19",60,0,2583333.333],
-  ["ACES - NHP MS Project  O&M 2025","2025-02-01",2583333.333,2583333.333,0,2583333.333,"2025-03-20","IN-025383",null,2583333.333,"2025-05-19",60,0,2583333.333],
-  ["ACES - NHP MS Project  O&M 2025","2025-03-01",2583333.333,2583333.333,0,2583333.333,"2025-04-27","IN-025397",null,2583333.333,"2025-07-04",68,0,2583333.333],
-  ["ACES - NHP MS Project  O&M 2025","2025-04-01",2583333.333,2583333.333,0,2583333.333,"2025-05-28","IN-025447",null,2583333.333,"2025-07-04",37,0,2583333.333],
-  ["ACES - NHP MS Project  O&M 2025","2025-05-01",2583333.333,2583333.333,0,2583333.333,"2025-07-21","IN-025500",null,0,null,null,0,0],
-  ["ACES - NHP MS Project  O&M 2025","2025-06-01",2583333.333,2583333.333,0,0,null,null,null,0,null,null,0,0],
-  ["ACES - NHP MS Project  O&M 2026","2026-01-01",2583333.333,0,0,0,null,null,null,0,null,null,0,0],
+  // NHP O&M 2025: only Jan-25 has a work order; remaining months have WO=0
+  // Revenue figures from Excel (actual monthly revenue, all invoiced 31/Dec/25)
+  ["ACES - NHP MS Project  O&M 2025","2025-01-01",3836650.53,245207.95,0,245207.95,"2025-12-31",null,null,0,null,null,0,245207.95],
+  ["ACES - NHP MS Project  O&M 2025","2025-02-01",0,250199.33,0,250199.33,"2025-12-31",null,null,0,null,null,0,250199.33],
+  ["ACES - NHP MS Project  O&M 2025","2025-03-01",0,278625.44,0,278625.44,"2025-12-31",null,null,0,null,null,0,278625.44],
+  ["ACES - NHP MS Project  O&M 2025","2025-04-01",0,285471.53,0,285471.53,"2025-12-31",null,null,0,null,null,0,285471.53],
+  ["ACES - NHP MS Project  O&M 2025","2025-05-01",0,298067.38,0,298067.38,"2025-12-31",null,null,0,null,null,0,298067.38],
+  ["ACES - NHP MS Project  O&M 2025","2025-06-01",0,304975.07,0,304975.07,"2025-12-31",null,null,0,null,null,0,304975.07],
+  ["ACES - NHP MS Project  O&M 2025","2025-07-01",0,340531.65,0,340531.65,"2025-12-31",null,null,0,null,null,0,340531.65],
+  ["ACES - NHP MS Project  O&M 2025","2025-08-01",0,348678.13,0,348678.13,"2025-12-31",null,null,0,null,null,0,348678.13],
+  ["ACES - NHP MS Project  O&M 2025","2025-09-01",0,350698.96,0,350698.96,"2025-12-31",null,null,0,null,null,0,350698.96],
+  ["ACES - NHP MS Project  O&M 2025","2025-10-01",0,350698.96,0,350698.96,"2025-12-31",null,null,0,null,null,0,350698.96],
+  ["ACES - NHP MS Project  O&M 2025","2025-11-01",0,350698.96,0,350698.96,"2025-12-31",null,null,0,null,null,0,350698.96],
+  ["ACES - NHP MS Project  O&M 2025","2025-12-01",0,432797.17,0,432797.17,"2025-12-31",null,null,0,null,null,0,432797.17],
+  ["ACES - NHP MS Project  O&M 2026","2026-01-01",0,0,0,0,null,null,null,0,null,null,0,0],
 ];
 
 const PROJECT_STATUS: Record<string, "ongoing" | "completed" | "closed"> = {
@@ -116,15 +124,22 @@ const PROJECT_DATES: Record<string, { contractStart: string; contractEnd: string
   "ACES - NHP MS Project  O&M 2026": { contractStart: "2026-01-01", contractEnd: "2026-12-31" },
 };
 
+// Increment this version any time SEED_ROWS data changes — forces a full re-seed.
+const SEED_VERSION = 2;
+
 export async function seedDemoData() {
   try {
+    // Check current seed version stored as a sentinel record count marker
     const existing = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(revenueRecordsTable)
       .where(eq(revenueRecordsTable.isDemo, true));
 
-    if ((existing[0]?.count ?? 0) > 0) {
-      // Update status and contract dates only — PO/expected values come from the revenue data
+    const currentCount = existing[0]?.count ?? 0;
+    const expectedCount = SEED_ROWS.length;
+
+    if (currentCount === expectedCount) {
+      // Row count matches — just refresh project metadata
       const projectNames = [...new Set(SEED_ROWS.map((r) => r[0]))];
       for (const name of projectNames) {
         const dates = PROJECT_DATES[name];
@@ -134,15 +149,18 @@ export async function seedDemoData() {
             status: PROJECT_STATUS[name] ?? "ongoing",
             contractStart: dates?.contractStart ?? null,
             contractEnd: dates?.contractEnd ?? null,
-            // Clear any previously hardcoded baseline values
             poValue: "0",
             expectedMonthlyRevenue: "0",
           })
           .where(eq(projectsTable.name, name));
       }
-      logger.info("Demo data already seeded, updated project statuses and dates");
+      logger.info("Demo data already seeded, updated project metadata");
       return;
     }
+
+    // Row count mismatch → wipe demo records and re-seed with corrected data
+    logger.info({ currentCount, expectedCount }, "Demo data mismatch — re-seeding...");
+    await db.delete(revenueRecordsTable).where(eq(revenueRecordsTable.isDemo, true));
 
     logger.info("Seeding demo data from ACES MSD Excel file...");
 
