@@ -1,190 +1,108 @@
 import { db, projectsTable, revenueRecordsTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { logger } from "./logger";
 
-// Raw data from the ACES MSD Excel file (ACES_MSD_Revenue_V1.0)
-// Format: [projectName, revenueMonth, workOrder, revenue, deductible, invoiced, invoiceDate, invoiceNo, dueDate, collected, collectedDate, days, penalties, netRevenue]
-const SEED_ROWS: Array<[string, string, number, number, number, number, string | null, string | null, string | null, number, string | null, number | null, number, number]> = [
-  ["STC COW","2023-10-01",1708333.335,1686290.06,0,1686290.06,"2024-02-11","IN-024375",null,1686290.06,"2024-09-16",218,215470.39,1470819.67],
-  ["STC COW","2023-10-01",0,187365.5624,0,187365.5624,"2024-07-25","IN-024841",null,187365.5624,"2024-09-16",53,0,187365.5624],
-  ["STC COW","2023-11-01",3416666.67,3074999.27,0,3074999.27,"2024-02-11","IN-024376",null,3074999.27,"2024-06-11",121,392916.57,2682082.7],
-  ["STC COW","2023-11-01",0,341666.5902,0,341666.5902,"2024-07-25","IN-024842",null,341666.5902,"2024-09-16",53,0,341666.5902],
-  ["STC COW","2023-12-01",3416666.67,2959365.832,457300.0281,2959365.832,"2024-07-25","IN-024836",null,2959365.832,"2024-09-16",53,392916.58,2566449.252],
-  ["STC COW","2024-01-01",3416666.67,3155366.67,261300,3155366.67,"2024-07-25","IN-024837",null,3155366.67,"2024-09-16",53,315536.59,2839830.08],
-  ["STC COW","2024-02-01",3416666.67,3123666.67,293000,3123666.67,"2024-07-25","IN-024840",null,3123666.67,"2024-09-16",53,312366.6,2811300.07],
-  ["STC COW","2024-03-01",3416666.67,3074999.27,0,3074999.27,"2024-07-25","IN-024838",null,3074999.2741,"2024-09-16",53,341666.59,2733332.68],
-  ["STC COW","2024-03-01",0,341666.59,0,341666.59,"2025-01-16","IN-025257",null,341666.59,"2025-01-30",14,0,341666.59],
-  ["STC COW","2024-04-01",3416666.67,2958870.6,0,2958870.6,"2024-07-25","IN024839",null,2958870.6039,"2024-09-16",53,328763.32,2630107.28],
-  ["STC COW","2024-04-01",0,328763.4,0,328763.4,"2024-12-31","IN-025239",null,328763.4,"2025-01-30",30,0,328763.4],
-  ["STC COW","2024-05-01",3416666.67,3287633.91,0,3287633.91,"2025-01-20","IN-025264",null,2958870.51,"2025-01-30",10,328763.319,2958870.591],
-  ["STC COW","2024-06-01",3416666.67,3287634,0,3287634,"2024-12-31","IN-025234",null,2958870.6043,"2025-01-30",30,328763.319,2958870.681],
-  ["STC COW","2024-07-01",3416666.67,3287634,0,3287634,"2024-12-31","IN-025235",null,2958870.6,"2025-01-30",30,328763.319,2958870.681],
-  ["STC COW","2024-08-01",3416666.67,3287634,0,3287634,"2024-12-31","IN-025236",null,2958870.6,"2025-02-06",37,328763.319,2958870.681],
-  ["STC COW","2024-09-01",3416666.67,2670633.99,616999.2,2670633.99,"2024-12-31","IN-025237",null,2497705.165,"2025-01-30",30,172928.82,2497705.17],
-  ["STC COW","2024-10-01",3416666.67,4169856.98,21004.88,4169856.98,"2025-01-16","IN-025258",null,4149856.9826,"2025-01-30",14,20000,4149856.98],
-  ["STC COW","2024-11-01",3416666.67,3074999.27,9000.85,3074999.27,"2025-01-16","IN-025259",null,3074999.2696,"2025-01-30",14,144500,2930499.27],
-  ["STC COW","2024-11-01",0,332666.55,0,332666.55,"2025-05-31","IN-025439",null,332666.55,"2025-08-03",64,0,332666.55],
-  ["STC COW","2024-12-01",3416666.67,3417104.59,0,3417104.59,"2025-01-20","IN-025260",null,3416666.67,"2025-01-30",10,341710.459,3075394.211],
-  ["STC COW","2024-12-01",0,437.9209,0,437.9209,"2025-05-31","IN-025440",null,437.9209,"2025-08-03",64,0,437.9209],
-  ["STC COW","2025-01-01",3416666.67,3487134.59,0,3487134.59,"2025-03-05","IN-025365",null,0,null,null,0,0],
-  ["STC COW","2025-02-01",3416666.67,3487134.59,0,3487134.59,"2025-03-05","IN-025366",null,0,null,null,0,0],
-  ["STC COW","2025-03-01",3416666.67,3487134.59,0,3487134.59,"2025-05-31","IN-025437",null,0,null,null,0,0],
-  ["STC COW","2025-04-01",3416666.67,3487134.59,0,3487134.59,"2025-05-31","IN-025438",null,0,null,null,0,0],
-  ["STC COW","2025-05-01",3416666.67,3487134.59,0,3487134.59,"2025-07-28","IN-025503",null,0,null,null,0,0],
-  ["STC COW","2025-06-01",3416666.67,3487134.59,0,0,null,null,null,0,null,null,0,0],
-  ["Diesel Compensation 2024","2024-01-01",0,0,0,7315200,null,"IN-024366",null,7315200,"2024-04-16",null,0,7315200],
-  ["Diesel Compensation 2024","2024-01-01",0,0,0,14196900,null,"IN-024383","2024-09-01",0,null,null,0,0],
-  ["Diesel Compensation 2025","2025-01-01",0,0,0,7920000,"2025-03-05","IN-025364",null,7920000,"2025-05-07",63,0,7920000],
-  ["Diesel Compensation 2026","2026-01-01",0,0,0,0,null,null,null,0,null,null,0,0],
-  ["STC IBS","2023-07-01",2857142.857,2857142.857,0,2857142.857,"2023-11-23","IN-023945",null,2857142.857,"2024-01-25",63,0,2857142.857],
-  ["STC IBS","2023-08-01",2857142.857,2857142.857,0,2857142.857,"2023-11-23","IN-023946",null,2857142.857,"2024-01-25",63,0,2857142.857],
-  ["STC IBS","2023-09-01",2857142.857,2857142.857,0,2857142.857,"2023-11-23","IN-023947",null,2857142.857,"2024-01-25",63,0,2857142.857],
-  ["STC IBS","2023-10-01",2857142.857,2857142.857,0,2857142.857,"2024-01-25","IN-024035",null,2857142.857,"2024-03-24",59,0,2857142.857],
-  ["STC IBS","2023-11-01",2857142.857,2857142.857,0,2857142.857,"2024-01-25","IN-024036",null,2857142.857,"2024-03-24",59,0,2857142.857],
-  ["STC IBS","2023-12-01",2857142.857,2857142.857,0,2857142.857,"2024-01-25","IN-024037",null,2857142.857,"2024-03-24",59,0,2857142.857],
-  ["STC IBS","2024-01-01",2857142.857,2857142.857,0,2857142.857,"2024-04-15","IN-024260",null,2857142.857,"2024-06-30",76,0,2857142.857],
-  ["STC IBS","2024-02-01",2857142.857,2857142.857,0,2857142.857,"2024-04-15","IN-024261",null,2857142.857,"2024-06-30",76,0,2857142.857],
-  ["STC IBS","2024-03-01",2857142.857,2857142.857,0,2857142.857,"2024-04-15","IN-024262",null,2857142.857,"2024-06-30",76,0,2857142.857],
-  ["STC IBS","2024-04-01",2857142.857,2857142.857,0,2857142.857,"2024-07-08","IN-024444",null,2857142.857,"2024-09-30",84,0,2857142.857],
-  ["STC IBS","2024-05-01",2857142.857,2857142.857,0,2857142.857,"2024-07-08","IN-024445",null,2857142.857,"2024-09-30",84,0,2857142.857],
-  ["STC IBS","2024-06-01",2857142.857,2857142.857,0,2857142.857,"2024-07-08","IN-024446",null,2857142.857,"2024-09-30",84,0,2857142.857],
-  ["STC IBS","2024-07-01",2857142.857,2857142.857,0,2857142.857,"2024-10-17","IN-024703",null,2857142.857,"2024-12-30",74,0,2857142.857],
-  ["STC IBS","2024-08-01",2857142.857,2857142.857,0,2857142.857,"2024-10-17","IN-024704",null,2857142.857,"2024-12-30",74,0,2857142.857],
-  ["STC IBS","2024-09-01",2857142.857,2857142.857,0,2857142.857,"2024-10-17","IN-024705",null,2857142.857,"2024-12-30",74,0,2857142.857],
-  ["STC IBS","2024-10-01",2857142.857,2857142.857,0,2857142.857,"2025-01-26","IN-025269",null,2857142.857,"2025-04-24",88,0,2857142.857],
-  ["STC IBS","2024-11-01",2857142.857,2857142.857,0,2857142.857,"2025-01-26","IN-025270",null,2857142.857,"2025-04-24",88,0,2857142.857],
-  ["STC IBS","2024-12-01",2857142.857,2857142.857,0,2857142.857,"2025-01-26","IN-025271",null,2857142.857,"2025-04-24",88,0,2857142.857],
-  ["STC IBS","2025-01-01",2857142.857,2857142.857,0,2857142.857,"2025-04-27","IN-025399",null,0,null,null,0,0],
-  ["STC IBS","2025-02-01",2857142.857,2857142.857,0,2857142.857,"2025-04-27","IN-025400",null,0,null,null,0,0],
-  ["STC IBS","2025-03-01",2857142.857,2857142.857,0,2857142.857,"2025-04-27","IN-025401",null,0,null,null,0,0],
-  ["STC IBS","2025-04-01",2857142.857,2857142.857,0,2857142.857,"2025-07-01","IN-025491",null,0,null,null,0,0],
-  ["STC IBS","2025-05-01",2857142.857,2857142.857,0,2857142.857,"2025-07-01","IN-025492",null,0,null,null,0,0],
-  ["STC IBS","2025-06-01",2857142.857,2857142.857,0,0,null,null,null,0,null,null,0,0],
-  ["STC WiFi","2023-07-01",1785714.286,1785714.286,0,1785714.286,"2023-11-23","IN-023948",null,1785714.286,"2024-01-25",63,0,1785714.286],
-  ["STC WiFi","2023-08-01",1785714.286,1785714.286,0,1785714.286,"2023-11-23","IN-023949",null,1785714.286,"2024-01-25",63,0,1785714.286],
-  ["STC WiFi","2023-09-01",1785714.286,1785714.286,0,1785714.286,"2023-11-23","IN-023950",null,1785714.286,"2024-01-25",63,0,1785714.286],
-  ["STC WiFi","2023-10-01",1785714.286,1785714.286,0,1785714.286,"2024-01-25","IN-024038",null,1785714.286,"2024-03-24",59,0,1785714.286],
-  ["STC WiFi","2023-11-01",1785714.286,1785714.286,0,1785714.286,"2024-01-25","IN-024039",null,1785714.286,"2024-03-24",59,0,1785714.286],
-  ["STC WiFi","2023-12-01",1785714.286,1785714.286,0,1785714.286,"2024-01-25","IN-024040",null,1785714.286,"2024-03-24",59,0,1785714.286],
-  ["STC WiFi","2024-01-01",1785714.286,1785714.286,0,1785714.286,"2024-04-15","IN-024263",null,1785714.286,"2024-06-30",76,0,1785714.286],
-  ["STC WiFi","2024-02-01",1785714.286,1785714.286,0,1785714.286,"2024-04-15","IN-024264",null,1785714.286,"2024-06-30",76,0,1785714.286],
-  ["STC WiFi","2024-03-01",1785714.286,1785714.286,0,1785714.286,"2024-04-15","IN-024265",null,1785714.286,"2024-06-30",76,0,1785714.286],
-  ["STC WiFi","2024-04-01",1785714.286,1785714.286,0,1785714.286,"2024-07-08","IN-024447",null,1785714.286,"2024-09-30",84,0,1785714.286],
-  ["STC WiFi","2024-05-01",1785714.286,1785714.286,0,1785714.286,"2024-07-08","IN-024448",null,1785714.286,"2024-09-30",84,0,1785714.286],
-  ["STC WiFi","2024-06-01",1785714.286,1785714.286,0,1785714.286,"2024-07-08","IN-024449",null,1785714.286,"2024-09-30",84,0,1785714.286],
-  ["STC WiFi","2024-07-01",1785714.286,1785714.286,0,1785714.286,"2024-10-17","IN-024706",null,1785714.286,"2024-12-30",74,0,1785714.286],
-  ["STC WiFi","2024-08-01",1785714.286,1785714.286,0,1785714.286,"2024-10-17","IN-024707",null,1785714.286,"2024-12-30",74,0,1785714.286],
-  ["STC WiFi","2024-09-01",1785714.286,1785714.286,0,1785714.286,"2024-10-17","IN-024708",null,1785714.286,"2024-12-30",74,0,1785714.286],
-  ["STC WiFi","2024-10-01",1785714.286,1785714.286,0,1785714.286,"2025-01-26","IN-025272",null,1785714.286,"2025-04-24",88,0,1785714.286],
-  ["STC WiFi","2024-11-01",1785714.286,1785714.286,0,1785714.286,"2025-01-26","IN-025273",null,1785714.286,"2025-04-24",88,0,1785714.286],
-  ["STC WiFi","2024-12-01",1785714.286,1785714.286,0,1785714.286,"2025-01-26","IN-025274",null,1785714.286,"2025-04-24",88,0,1785714.286],
-  ["STC WiFi","2025-01-01",1785714.286,1785714.286,0,1785714.286,"2025-04-27","IN-025402",null,0,null,null,0,0],
-  ["STC WiFi","2025-02-01",1785714.286,1785714.286,0,1785714.286,"2025-04-27","IN-025403",null,0,null,null,0,0],
-  ["STC WiFi","2025-03-01",1785714.286,1785714.286,0,1785714.286,"2025-04-27","IN-025404",null,0,null,null,0,0],
-  ["STC WiFi","2025-04-01",1785714.286,1785714.286,0,1785714.286,"2025-07-01","IN-025493",null,0,null,null,0,0],
-  ["STC WiFi","2025-05-01",1785714.286,1785714.286,0,1785714.286,"2025-07-01","IN-025494",null,0,null,null,0,0],
-  ["STC WiFi","2025-06-01",1785714.286,1785714.286,0,0,null,null,null,0,null,null,0,0],
-  // NHP O&M 2025: only Jan-25 has a work order; remaining months have WO=0
-  // Revenue figures from Excel (actual monthly revenue, all invoiced 31/Dec/25)
-  ["ACES - NHP MS Project  O&M 2025","2025-01-01",3836650.53,245207.95,0,245207.95,"2025-12-31",null,null,0,null,null,0,245207.95],
-  ["ACES - NHP MS Project  O&M 2025","2025-02-01",0,250199.33,0,250199.33,"2025-12-31",null,null,0,null,null,0,250199.33],
-  ["ACES - NHP MS Project  O&M 2025","2025-03-01",0,278625.44,0,278625.44,"2025-12-31",null,null,0,null,null,0,278625.44],
-  ["ACES - NHP MS Project  O&M 2025","2025-04-01",0,285471.53,0,285471.53,"2025-12-31",null,null,0,null,null,0,285471.53],
-  ["ACES - NHP MS Project  O&M 2025","2025-05-01",0,298067.38,0,298067.38,"2025-12-31",null,null,0,null,null,0,298067.38],
-  ["ACES - NHP MS Project  O&M 2025","2025-06-01",0,304975.07,0,304975.07,"2025-12-31",null,null,0,null,null,0,304975.07],
-  ["ACES - NHP MS Project  O&M 2025","2025-07-01",0,340531.65,0,340531.65,"2025-12-31",null,null,0,null,null,0,340531.65],
-  ["ACES - NHP MS Project  O&M 2025","2025-08-01",0,348678.13,0,348678.13,"2025-12-31",null,null,0,null,null,0,348678.13],
-  ["ACES - NHP MS Project  O&M 2025","2025-09-01",0,350698.96,0,350698.96,"2025-12-31",null,null,0,null,null,0,350698.96],
-  ["ACES - NHP MS Project  O&M 2025","2025-10-01",0,350698.96,0,350698.96,"2025-12-31",null,null,0,null,null,0,350698.96],
-  ["ACES - NHP MS Project  O&M 2025","2025-11-01",0,350698.96,0,350698.96,"2025-12-31",null,null,0,null,null,0,350698.96],
-  ["ACES - NHP MS Project  O&M 2025","2025-12-01",0,432797.17,0,432797.17,"2025-12-31",null,null,0,null,null,0,432797.17],
-  ["ACES - NHP MS Project  O&M 2026","2026-01-01",0,0,0,0,null,null,null,0,null,null,0,0],
-];
-
-const PROJECT_STATUS: Record<string, "ongoing" | "completed" | "closed"> = {
-  "STC COW": "ongoing",
-  "Diesel Compensation 2024": "completed",
-  "Diesel Compensation 2025": "completed",
-  "Diesel Compensation 2026": "ongoing",
-  "STC IBS": "ongoing",
-  "STC WiFi": "ongoing",
-  "ACES - NHP MS Project  O&M 2025": "ongoing",
-  "ACES - NHP MS Project  O&M 2026": "ongoing",
+// Project metadata: contract dates and status only.
+// Financial values (PO, expected monthly) come from revenue_records, not hardcoded here.
+const PROJECT_META: Record<string, {
+  contractStart: string;
+  contractEnd: string;
+  status: "ongoing" | "completed" | "closed";
+}> = {
+  "STC COW":                         { contractStart: "2023-10-01", contractEnd: "2026-10-31", status: "ongoing" },
+  "Diesel Compensation 2024":        { contractStart: "2024-01-01", contractEnd: "2024-12-31", status: "completed" },
+  "Diesel Compensation 2025":        { contractStart: "2025-01-01", contractEnd: "2025-12-31", status: "completed" },
+  "Diesel Compensation 2026":        { contractStart: "2026-01-01", contractEnd: "2026-10-31", status: "ongoing" },
+  "STC IBS":                         { contractStart: "2023-10-01", contractEnd: "2026-10-31", status: "ongoing" },
+  "STC WiFi":                        { contractStart: "2022-05-01", contractEnd: "2026-04-30", status: "ongoing" },
+  "ACES - NHP MS Project  O&M 2025": { contractStart: "2025-01-01", contractEnd: "2025-12-31", status: "ongoing" },
+  "ACES - NHP MS Project  O&M 2026": { contractStart: "2026-01-01", contractEnd: "2026-12-31", status: "ongoing" },
 };
 
-// Contract date ranges from the spec (start/end only — no PO/expected values)
-const PROJECT_DATES: Record<string, { contractStart: string; contractEnd: string }> = {
-  "STC COW":                         { contractStart: "2023-10-01", contractEnd: "2026-10-31" },
-  "Diesel Compensation 2024":        { contractStart: "2024-01-01", contractEnd: "2024-12-31" },
-  "Diesel Compensation 2025":        { contractStart: "2025-01-01", contractEnd: "2025-12-31" },
-  "Diesel Compensation 2026":        { contractStart: "2026-01-01", contractEnd: "2026-10-31" },
-  "STC IBS":                         { contractStart: "2023-10-01", contractEnd: "2026-10-31" },
-  "STC WiFi":                        { contractStart: "2022-05-01", contractEnd: "2026-04-30" },
-  "ACES - NHP MS Project  O&M 2025": { contractStart: "2025-01-01", contractEnd: "2025-12-31" },
-  "ACES - NHP MS Project  O&M 2026": { contractStart: "2026-01-01", contractEnd: "2026-12-31" },
-};
+// The authoritative CSV seed file committed to the repo.
+// Used only when the DB is completely empty (e.g. after a wipe).
+const CSV_PATH = resolve(
+  process.cwd(),
+  "../../attached_assets/ACES_MSD_Revenue_SQL_Ready_1786000968438.csv"
+);
 
-// Increment this version any time SEED_ROWS data changes — forces a full re-seed.
-const SEED_VERSION = 2;
+function str(v: string | undefined): string {
+  const t = (v ?? "").trim();
+  return t === "" ? "0" : t;
+}
+function nullable(v: string | undefined): string | null {
+  const t = (v ?? "").trim();
+  return t === "" ? null : t;
+}
+function intOrNull(v: string | undefined): number | null {
+  const t = (v ?? "").trim();
+  if (t === "") return null;
+  const n = parseInt(t, 10);
+  return isNaN(n) ? null : n;
+}
+
+async function syncProjectMeta(): Promise<void> {
+  for (const [name, meta] of Object.entries(PROJECT_META)) {
+    await db
+      .update(projectsTable)
+      .set({
+        status: meta.status,
+        contractStart: meta.contractStart,
+        contractEnd: meta.contractEnd,
+        poValue: "0",
+        expectedMonthlyRevenue: "0",
+      })
+      .where(eq(projectsTable.name, name));
+  }
+}
 
 export async function seedDemoData() {
   try {
-    // Check current seed version stored as a sentinel record count marker
-    const existing = await db
+    // Count ALL revenue records (user-uploaded have is_demo=false; seed rows have is_demo=true)
+    const [{ count }] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(revenueRecordsTable)
-      .where(eq(revenueRecordsTable.isDemo, true));
+      .from(revenueRecordsTable);
 
-    const currentCount = existing[0]?.count ?? 0;
-    const expectedCount = SEED_ROWS.length;
-
-    if (currentCount === expectedCount) {
-      // Row count matches — just refresh project metadata
-      const projectNames = [...new Set(SEED_ROWS.map((r) => r[0]))];
-      for (const name of projectNames) {
-        const dates = PROJECT_DATES[name];
-        await db
-          .update(projectsTable)
-          .set({
-            status: PROJECT_STATUS[name] ?? "ongoing",
-            contractStart: dates?.contractStart ?? null,
-            contractEnd: dates?.contractEnd ?? null,
-            poValue: "0",
-            expectedMonthlyRevenue: "0",
-          })
-          .where(eq(projectsTable.name, name));
-      }
-      logger.info("Demo data already seeded, updated project metadata");
+    if (count > 0) {
+      // Records already present — just keep project metadata in sync
+      await syncProjectMeta();
+      logger.info({ count }, "Revenue records present, synced project metadata");
       return;
     }
 
-    // Row count mismatch → wipe demo records and re-seed with corrected data
-    logger.info({ currentCount, expectedCount }, "Demo data mismatch — re-seeding...");
-    await db.delete(revenueRecordsTable).where(eq(revenueRecordsTable.isDemo, true));
+    // DB is empty — attempt to seed from the authoritative CSV
+    let csvContent: string;
+    try {
+      csvContent = readFileSync(CSV_PATH, "utf8");
+    } catch {
+      logger.warn({ CSV_PATH }, "Seed CSV not found — database left empty");
+      return;
+    }
 
-    logger.info("Seeding demo data from ACES MSD Excel file...");
+    const lines = csvContent.trim().split("\n").slice(1); // skip header
+    logger.info({ rows: lines.length, CSV_PATH }, "Seeding from CSV...");
 
-    const projectNames = [...new Set(SEED_ROWS.map((r) => r[0]))];
+    // Upsert projects first
     const projectMap = new Map<string, number>();
-
-    for (const name of projectNames) {
-      const dates = PROJECT_DATES[name];
+    for (const [name, meta] of Object.entries(PROJECT_META)) {
       const [proj] = await db
         .insert(projectsTable)
         .values({
           name,
-          status: PROJECT_STATUS[name] ?? "ongoing",
-          contractStart: dates?.contractStart ?? null,
-          contractEnd: dates?.contractEnd ?? null,
+          status: meta.status,
+          contractStart: meta.contractStart,
+          contractEnd: meta.contractEnd,
           poValue: "0",
           expectedMonthlyRevenue: "0",
         })
         .onConflictDoUpdate({
           target: projectsTable.name,
           set: {
-            status: PROJECT_STATUS[name] ?? "ongoing",
-            contractStart: dates?.contractStart ?? null,
-            contractEnd: dates?.contractEnd ?? null,
+            status: meta.status,
+            contractStart: meta.contractStart,
+            contractEnd: meta.contractEnd,
             poValue: "0",
             expectedMonthlyRevenue: "0",
           },
@@ -193,33 +111,43 @@ export async function seedDemoData() {
       projectMap.set(name, proj.id);
     }
 
+    // Parse and insert CSV rows in batches
+    const rows = lines.map((line) => {
+      const cols = line.split(",");
+      const [
+        project, revenue_month, work_order, revenue, deductible,
+        invoiced, invoice_date, invoice_no, due_date,
+        collected, collected_date, days, penalties, net_revenue,
+      ] = cols;
+
+      const projectName = (project ?? "").trim();
+      return {
+        projectId: projectMap.get(projectName) ?? null,
+        projectName,
+        revenueMonth: nullable(revenue_month) ?? revenue_month!.trim(),
+        workOrder: str(work_order),
+        revenue: str(revenue),
+        deductible: str(deductible),
+        invoiced: str(invoiced),
+        invoiceDate: nullable(invoice_date),
+        invoiceNo: nullable(invoice_no),
+        dueDate: nullable(due_date),
+        collected: str(collected),
+        collectedDate: nullable(collected_date),
+        days: intOrNull(days),
+        penalties: str(penalties),
+        netRevenue: str(net_revenue),
+        isDemo: true as const,
+      };
+    });
+
     const batchSize = 20;
-    for (let i = 0; i < SEED_ROWS.length; i += batchSize) {
-      const batch = SEED_ROWS.slice(i, i + batchSize);
-      await db.insert(revenueRecordsTable).values(
-        batch.map(([pName, revMonth, wo, rv, ded, inv, invDate, invNo, dueDate, coll, collDate, days, pen, nr]) => ({
-          projectId: projectMap.get(pName) ?? null,
-          projectName: pName,
-          revenueMonth: revMonth,
-          workOrder: String(wo),
-          revenue: String(rv),
-          deductible: String(ded),
-          invoiced: String(inv),
-          invoiceDate: invDate ?? null,
-          invoiceNo: invNo ?? null,
-          dueDate: dueDate ?? null,
-          collected: String(coll),
-          collectedDate: collDate ?? null,
-          days: days ?? null,
-          penalties: String(pen),
-          netRevenue: String(nr),
-          isDemo: true,
-        })),
-      );
+    for (let i = 0; i < rows.length; i += batchSize) {
+      await db.insert(revenueRecordsTable).values(rows.slice(i, i + batchSize));
     }
 
-    logger.info({ count: SEED_ROWS.length }, "Demo data seeded successfully");
+    logger.info({ count: rows.length }, "CSV seed complete");
   } catch (err) {
-    logger.error({ err }, "Failed to seed demo data");
+    logger.error({ err }, "Seed failed");
   }
 }

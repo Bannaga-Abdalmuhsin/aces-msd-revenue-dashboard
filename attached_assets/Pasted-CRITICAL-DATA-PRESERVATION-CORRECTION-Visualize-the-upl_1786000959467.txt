@@ -1,0 +1,203 @@
+CRITICAL DATA-PRESERVATION CORRECTION
+
+Visualize the uploaded SQL-ready CSV exactly as provided. Do not merge, shorten, deduplicate, average, replace, or consolidate any source record.
+
+1. Preserve Every Source Row
+
+* The CSV contains 177 valid revenue records.
+* Import and retain all 177 rows.
+* Add a unique internal `record_id` to every imported row.
+* Use `record_id` as the database primary key.
+* One CSV row must always create one database record.
+* Keep the original source-row order.
+* Do not treat `project + revenue_month` as a unique key.
+* Do not overwrite an existing row because another row has the same project and revenue month.
+
+2. STC COW Records
+
+The STC COW project intentionally contains multiple records for certain revenue months.
+
+These may represent separate revenue portions, deliverables, invoices, adjustments, deductions, or collections.
+
+Therefore:
+
+* Do not combine STC COW into one source line.
+* Do not keep only the first or last STC COW record.
+* Do not remove records that share the same month.
+* Do not assume repeated project and month values are duplicates.
+* Do not replace multiple records with the project baseline.
+* Display every STC COW source record separately in the underlying revenue table.
+
+Example:
+
+If STC COW has two records for Oct 2023, both records must remain stored and visible as two separate lines.
+
+For charts and KPI totals, calculate:
+
+`SUM(all filtered source records)`
+
+Do not calculate:
+
+`FIRST(record)`, `LAST(record)`, `AVERAGE(record)`, or `DISTINCT(project, month)`.
+
+3. Duplicate Detection
+
+A record must not be classified as a duplicate merely because it has the same:
+
+* Project
+* Revenue month
+* Work Order
+* Revenue
+* Invoice date
+* Collected date
+
+Only flag a possible duplicate when every imported field is identical. Even then, show a warning and allow the user to retain the record. Never delete it automatically.
+
+Where an Invoice No exists, preserve it as text. Do not use Invoice No alone as the database primary key because some records may have a blank or repeated invoice number.
+
+4. Exact Number Display
+
+Do not abbreviate financial values.
+
+Do not display:
+
+* `SAR 3.42M`
+* `SAR 950K`
+* `SAR 230.3M`
+
+Display full values:
+
+* `SAR 3,416,666.6700`
+* `SAR 950,000.0000`
+* `SAR 230,299,568.1700`
+
+Requirements:
+
+* Preserve four decimal places from the SQL-ready CSV.
+* Use comma thousand separators only for display.
+* Store values as decimal numbers without comma separators.
+* Use SQL `DECIMAL(20,4)` or `NUMERIC(20,4)`.
+* Do not use floating-point types for financial values.
+* Do not round, truncate, or abbreviate stored values.
+* Export the same full-precision values.
+
+Apply this full-number rule to:
+
+* Work Order
+* Revenue
+* Deductible
+* Invoiced
+* Collected
+* Penalties
+* Net Revenue
+* Outstanding
+* PO Value
+* Expected Revenue
+
+5. Source Data vs Project Baseline
+
+Keep two separate datasets:
+
+* `revenue_records`: The 177 detailed CSV records.
+* `project_baselines`: Project start date, end date, PO value, and expected monthly revenue.
+
+The project baseline must provide planning context only.
+
+It must not:
+
+* Replace monthly revenue records.
+* Generate missing actual records.
+* Consolidate STC COW records.
+* Change imported financial values.
+* Be joined in a way that duplicates revenue amounts.
+
+Use a one-to-many relationship:
+
+`project_baselines.project → revenue_records.project`
+
+One project baseline can relate to many revenue records.
+
+6. Safe Dashboard Aggregation
+
+KPI and chart calculations may aggregate filtered records, but they must use simple sums across every applicable row.
+
+Examples:
+
+* Total Revenue = `SUM(revenue_records.revenue)`
+* Total Invoiced = `SUM(revenue_records.invoiced)`
+* Total Collected = `SUM(revenue_records.collected)`
+* Total Penalties = `SUM(revenue_records.penalties)`
+* Total Net Revenue = `SUM(revenue_records.net_revenue)`
+* Outstanding = `MAX(SUM(invoiced) − SUM(collected), 0)`
+
+For monthly charts:
+
+* Group records by `revenue_month`.
+* Sum every record within the month.
+* Do not select only one record per project/month.
+* Do not use distinct financial values.
+
+7. Detailed Revenue Table
+
+Keep a detailed table below the high-level dashboard showing every imported record with:
+
+* Record ID
+* Project
+* Revenue Month
+* Work Order
+* Revenue
+* Deductible
+* Invoiced
+* Invoice Date
+* Invoice No
+* Due Date
+* Collected
+* Collected Date
+* Days
+* Penalties
+* Net Revenue
+
+The table must support:
+
+* Pagination
+* Project filtering
+* Month filtering
+* Sorting
+* Search by Invoice No
+* Full-value display
+* CSV export
+
+Do not collapse table rows into a project summary.
+
+8. Import Validation
+
+After importing the CSV, display:
+
+* Source rows detected: 177
+* Successfully imported: 177
+* Rejected rows: 0
+* Automatically merged rows: 0
+* Automatically deleted rows: 0
+
+If the imported record count is not 177, stop the import and show a clear validation error.
+
+9. Reconciliation Control
+
+Add an internal data-quality check comparing CSV totals with database totals for:
+
+* Record count
+* Work Order
+* Revenue
+* Deductible
+* Invoiced
+* Collected
+* Penalties
+* Net Revenue
+
+Show:
+
+`DATA RECONCILIATION: PASSED`
+
+only when every imported total exactly matches the source CSV totals to four decimal places.
+
+Implement this correction without changing the previously approved ACES theme, logo, executive layout, project baselines, filters, or charts.
