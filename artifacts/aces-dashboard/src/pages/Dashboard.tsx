@@ -32,8 +32,8 @@ const C = {
 // ── Formatters ───────────────────────────────────────────────────────
 /** Full SAR value with 4 decimal places – no K / M / B abbreviations */
 function fmtSAR(n: number): string {
-  if (!isFinite(n)) return 'SAR 0.0000';
-  return `SAR ${n.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
+  if (!isFinite(n)) return '﷼ 0.0000';
+  return `﷼ ${n.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
 }
 /** Compact numeric for chart axes only (no SAR prefix, 0 decimals) */
 function fmtAxis(n: number): string {
@@ -431,7 +431,7 @@ function ManagementTable({ projects, loading }: { projects: any[]; loading: bool
 }
 
 // ── Main Dashboard ────────────────────────────────────────────────────
-export default function Dashboard() {
+export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [selectedYear,    setSelectedYear]    = useState<string>('');
   const [selectedMonth,   setSelectedMonth]   = useState<string>('');
@@ -555,6 +555,22 @@ export default function Dashboard() {
               onMouseOut={e => (e.currentTarget.style.background = C.red)}>
               Update Data
             </button>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                title="Sign out"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.75)' }}
+                onMouseOver={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+                onMouseOut={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                Sign Out
+              </button>
+            )}
           </div>
         </div>
       </header>
