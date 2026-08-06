@@ -7,6 +7,7 @@ import invoicesRouter from "./invoices";
 import forecastRouter from "./forecast";
 import validationRouter from "./validation";
 import auditRouter from "./audit";
+import odataRouter from "./odata";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(invoicesRouter);
 router.use(forecastRouter);
 router.use(validationRouter);
 router.use(auditRouter);
+router.use(odataRouter);
 
 export default router;
