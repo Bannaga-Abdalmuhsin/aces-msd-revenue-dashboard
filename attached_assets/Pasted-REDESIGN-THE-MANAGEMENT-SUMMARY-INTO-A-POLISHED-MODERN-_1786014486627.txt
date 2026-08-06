@@ -1,0 +1,348 @@
+REDESIGN THE MANAGEMENT SUMMARY INTO A POLISHED MODERN EXECUTIVE TABLE
+
+Update the Management Summary layout shown in the current dashboard. Preserve all calculations and imported CSV records. This is primarily a presentation and usability improvement.
+
+1. Remove Unsupported Information
+
+The CSV does not contain:
+
+* Status
+* Contract start date
+* Contract end date
+
+Remove the `Status` and `Contract` columns from the Management Summary.
+
+Do not infer, estimate, or manually create this information.
+
+Use only CSV-derived fields:
+
+* Project
+* Work Order
+* Revenue
+* Deductible
+* Invoiced
+* Collected
+* Outstanding
+* Penalties
+* Net Revenue
+* Achievement
+* Collection Rate
+
+2. New Table Structure
+
+Organize the columns into three visual groups:
+
+Project
+
+* Project
+
+Financial Performance
+
+* Work Order
+* Revenue
+* Deductible
+* Invoiced
+* Collected
+* Outstanding
+* Penalties
+* Net Revenue
+
+Performance Ratios
+
+* Achievement
+* Collection Rate
+
+Use a two-level header:
+
+```text
+PROJECT | FINANCIAL PERFORMANCE                           | PERFORMANCE
+Project | Work Order | Revenue | Deductible | ...         | Achievement | Collection
+```
+
+Use subtle group separators instead of heavy borders.
+
+3. Modern Container
+
+Design the section as a premium executive card:
+
+* White background
+* 14–16 px corner radius
+* Subtle border: `#D9DEE7`
+* Very soft shadow
+* 20–24 px internal padding
+* Neutral page background
+* No thick outer border
+
+Header area:
+
+* ACES red vertical marker
+* “Management Summary” in ACES navy
+* Small subtitle: “Financial performance by project”
+* Project count on the right
+* Optional compact Export button on the right
+
+4. Table Header
+
+Use:
+
+* First-level grouped header: Very light blue-grey background
+* Second-level column header: ACES navy
+* Header text: White
+* Small uppercase labels
+* Clear column alignment
+* Rounded top-left and top-right corners
+
+Do not use an oversized solid navy block.
+
+Use ACES red only as a thin underline or active-sort indicator.
+
+5. Project Column
+
+Make Project the strongest text column:
+
+* Left aligned
+* Semibold
+* ACES navy
+* Minimum width of 180 px
+* Sticky on horizontal scroll
+* White background when sticky
+* Subtle right-side shadow or divider
+
+Use the full official project names from the CSV. Do not replace them with manually shortened names unless required for a small screen.
+
+6. Financial Values
+
+Align every monetary value to the right.
+
+Use:
+
+* Tabular numerals
+* Medium font weight
+* ACES charcoal for normal values
+* Four decimal places where required
+* Comma thousands separators
+* No K, M, or B abbreviations
+
+Example:
+
+`SAR 109,910,033.6916`
+
+Use the official SAR symbol if already implemented correctly.
+
+Do not reduce font size excessively just to fit the table. Allow horizontal scrolling on smaller screens.
+
+7. Color Rules
+
+Use restrained ACES colors:
+
+Normal values:
+
+* ACES charcoal or navy
+
+Deductible:
+
+* ACES red only when greater than zero
+
+Outstanding:
+
+* ACES red only when greater than zero
+
+Penalties:
+
+* Dark ACES red only when greater than zero
+
+Collected:
+
+* ACES medium blue, not green
+
+Net Revenue:
+
+* ACES navy and semibold
+
+Zero values:
+
+* Muted grey
+* Display as `—` where appropriate, while preserving the underlying numeric zero
+
+Do not use green anywhere in the Management Summary.
+
+8. Achievement Indicator
+
+Replace the plain Achievement percentage with:
+
+* Percentage value
+* Thin horizontal progress bar below it
+
+Colors:
+
+* 100% or higher: ACES navy
+* 90%–99.99%: ACES medium blue
+* Below 90%: ACES red
+
+Use a light-grey progress track.
+
+If achievement exceeds 100%, show the real percentage but cap the visual progress-bar width at 100%.
+
+Example:
+
+```text
+98.8%
+━━━━━━━━━━━━━━░
+```
+
+Do not use green.
+
+9. Collection Rate Indicator
+
+Display:
+
+* Collection percentage
+* Small thin progress bar
+
+Colors:
+
+* 90% or higher: ACES navy
+* 70%–89.99%: ACES medium blue
+* Below 70%: ACES red
+
+For 0%, show:
+
+* `0.0%`
+* Empty grey track
+* Red percentage text only if management attention is required
+
+Do not use green.
+
+10. Row Design
+
+Use clean rows with:
+
+* Height between 48 and 54 px
+* Comfortable horizontal padding
+* Very light row separators
+* White background
+* Subtle alternate-row background: `#F8F9FB`
+* Soft ACES-blue hover state
+* Smooth 150 ms transition
+
+Do not use dark zebra stripes or borders around every cell.
+
+When a project row is selected:
+
+* Add a pale blue background
+* Add a 3 px ACES-red left indicator
+* Keep text readable
+
+11. Portfolio Total
+
+Create a strong sticky total row at the bottom.
+
+Style:
+
+* Very light ACES-navy tint
+* Navy top border
+* Bold project label
+* Semibold financial totals
+* ACES red for total Deductible, Outstanding, and Penalties
+* ACES navy for Work Order, Revenue, Invoiced, Collected, and Net Revenue
+* Sticky at the bottom of the table when vertically scrolling
+
+Do not make it look identical to normal project rows.
+
+12. Sorting and Interaction
+
+Enable sorting for:
+
+* Project
+* Work Order
+* Revenue
+* Deductible
+* Invoiced
+* Collected
+* Outstanding
+* Penalties
+* Net Revenue
+* Achievement
+* Collection Rate
+
+Show a minimal sort arrow only on hover or when active.
+
+Allow clicking a project row to filter or open its detailed revenue records.
+
+Add a small search field:
+
+`Search project`
+
+Do not add excessive controls.
+
+13. Responsive Layout
+
+Large desktop and 4K:
+
+* Display the full table.
+* Use balanced column widths.
+* Avoid excessive empty spacing.
+
+Laptop:
+
+* Keep Project sticky.
+* Allow horizontal scrolling for financial columns.
+
+Tablet:
+
+* Keep Project sticky.
+* Allow controlled horizontal scrolling.
+* Maintain readable values.
+
+Mobile:
+
+Replace each table row with a compact project card showing:
+
+* Project
+* Work Order
+* Revenue
+* Invoiced
+* Collected
+* Outstanding
+* Net Revenue
+* Achievement
+* Collection Rate
+
+Allow the remaining values to expand under “View details”.
+
+Do not compress all columns into an unreadable mobile table.
+
+14. Data Integrity
+
+Do not change the underlying data logic.
+
+Requirements:
+
+* Preserve all 177 CSV records.
+* Preserve repeated STC COW rows.
+* Calculate project totals by summing every applicable source record.
+* Do not deduplicate project/month records.
+* Do not reintroduce project baselines.
+* Do not generate Status or Contract information.
+* Do not change the formulas.
+* Keep the Portfolio Total fully reconciled with the CSV.
+
+15. Final Quality Check
+
+Confirm:
+
+* Table uses only CSV-derived information.
+* Status and Contract are removed.
+* ACES navy, red, slate, and white dominate the design.
+* No green remains.
+* Project column is sticky.
+* Financial columns are right-aligned.
+* Full values remain readable.
+* Achievement and Collection use thin ACES-colored progress bars.
+* Total row is visually distinct and sticky.
+* Sorting works.
+* Project search works.
+* Mobile layout changes to cards.
+* No data, filter, or calculation behavior is broken.
+
+Implement this directly in the existing dashboard and provide the updated working preview.
