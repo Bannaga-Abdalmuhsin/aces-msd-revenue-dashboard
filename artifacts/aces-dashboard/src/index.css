@@ -1,23 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
-/* ── ACES Official Brand Colors (extracted from logo asset) ─────────── */
+/* ── ACES Official Brand Colors ──────────────────────────────────────── */
 :root {
-  --aces-navy:       #122E64;   /* extracted from ACES brand stripe   */
-  --aces-navy-mid:   #1E4080;   /* secondary navy for chart series    */
-  --aces-red:        #EF1E34;   /* extracted from ACES logo – 22 835px */
-  --aces-red-dark:   #9C1C2A;   /* deeper maroon for hover / accent   */
-  --aces-charcoal:   #2F2E2E;   /* primary dark text (from logo)      */
-  --aces-slate:      #706F6F;   /* secondary / muted text (from logo) */
-  --aces-light:      #F4F6F8;   /* page background                    */
-  --aces-border:     #DFE3E8;   /* card & input borders               */
-  --aces-white:      #FFFFFF;   /* card surfaces                      */
-  --aces-navy-tint:  #E8EDF5;   /* very light navy tint               */
-  --success:         #168653;   /* Collected / positive               */
-  --success-light:   #DCFCE7;
-  --warning:         #C87800;   /* Outstanding / attention            */
-  --warning-light:   #FEF3C7;
-  --danger:          var(--aces-red);
+  --aces-navy:         #122E64;   /* primary brand navy                 */
+  --aces-medium-blue:  #485D86;   /* Collected / secondary series       */
+  --aces-muted-blue:   #6F82A6;   /* muted blue shade                   */
+  --aces-red:          #EF1E34;   /* ACES brand red                     */
+  --aces-red-dark:     #9C1C2A;   /* hover / accent                     */
+  --aces-critical:     #B51226;   /* Overdue / critical dark            */
+  --aces-charcoal:     #303846;   /* primary dark text / Net Revenue    */
+  --aces-slate:        #7B8495;   /* secondary / muted text             */
+  --aces-light-grey:   #E7EAF0;   /* card track / tint                  */
+  --aces-background:   #F4F5F7;   /* page background                    */
+  --aces-white:        #FFFFFF;   /* card surfaces                      */
+  --aces-border:       #D9DEE7;   /* card & input borders               */
+  --aces-muted-text:   #687386;   /* secondary muted labels             */
 }
 
 /* ── Reset / Base ───────────────────────────────────────────────────── */

@@ -13,21 +13,19 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import logoUrl from '@assets/MSD_Logo_1785945599981.png';
 
-// ── Brand palette – extracted from official ACES logo asset ──────────
+// ── Brand palette – strict ACES Navy · Red · Slate theme ─────────────
 const C = {
-  navy:      '#122E64',   // ACES Navy (brand stripe extraction)
-  navyMid:   '#1E4080',   // secondary navy series
-  red:       '#EF1E34',   // ACES Red (logo – 22 835 pixel cluster)
-  redDark:   '#9C1C2A',   // ACES Red Dark / hover
-  charcoal:  '#2F2E2E',   // primary dark text
-  slate:     '#706F6F',   // secondary / muted
-  green:     '#168653',   // Collected / positive
-  greenL:    '#DCFCE7',
-  amber:     '#C87800',   // Outstanding / attention
-  amberL:    '#FEF3C7',
-  light:     '#F4F6F8',   // page background
-  border:    '#DFE3E8',
-  navyTint:  '#E8EDF5',
+  navy:      '#122E64',   // ACES Navy — primary brand colour
+  medBlue:   '#485D86',   // Medium blue — Collected series
+  mutedBlue: '#6F82A6',   // Muted blue shade
+  red:       '#EF1E34',   // ACES Red — negative / warnings
+  redDark:   '#9C1C2A',   // ACES Red Dark — hover
+  critDark:  '#B51226',   // Critical dark red — Overdue
+  charcoal:  '#303846',   // Charcoal — primary text / Net Revenue chart
+  slate:     '#7B8495',   // Slate — muted / secondary
+  light:     '#F4F5F7',   // Page background
+  border:    '#D9DEE7',   // Card & input borders
+  navyTint:  '#E7EAF0',   // Light grey track / tint
   white:     '#FFFFFF',
 };
 
@@ -208,9 +206,9 @@ function UpdateDataModal({ onClose }: { onClose: () => void }) {
         ) : (
           <>
             <div className="flex items-center gap-3 p-3 rounded-lg mb-3"
-                 style={{ background: C.greenL }}>
-              <span className="text-green-600 text-xl">✓</span>
-              <p className="text-sm font-semibold text-green-800">{result.imported} records imported</p>
+                 style={{ background: C.navyTint }}>
+              <span className="text-xl font-bold" style={{ color: C.navy }}>✓</span>
+              <p className="text-sm font-semibold" style={{ color: C.navy }}>{result.imported} records imported</p>
             </div>
             {result.warnings.slice(0, 5).map((w: any, i: number) => (
               <p key={i} className="text-xs text-amber-700 py-0.5">Row {w.row}: {w.message}</p>
@@ -340,8 +338,8 @@ function ManagementTable({ projects, loading }: { projects: any[]; loading: bool
               ? (p.totalRevenue / p.totalExpectedRevenue) * 100 : 0;
             const collPct = p.totalInvoiced > 0
               ? (p.totalCollected / p.totalInvoiced) * 100 : 0;
-            const achColor  = achPct  >= 90 ? C.green  : achPct  >= 70 ? C.amber : C.red;
-            const collColor = collPct >= 90 ? C.green  : collPct >= 70 ? C.amber : C.red;
+            const achColor  = achPct  >= 100 ? C.navy : achPct  >= 90 ? C.medBlue : C.red;
+            const collColor = collPct >= 100 ? C.navy : collPct >= 90 ? C.medBlue : C.red;
             return (
               <tr key={p.id} style={{ background: i % 2 === 0 ? C.white : C.light }}>
                 <td className="px-2.5 py-1.5 font-medium whitespace-nowrap"
@@ -360,15 +358,15 @@ function ManagementTable({ projects, loading }: { projects: any[]; loading: bool
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
                     style={{ color: C.charcoal }}>{fmtSAR(p.totalInvoiced)}</td>
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: C.green }}>{fmtSAR(p.totalCollected)}</td>
+                    style={{ color: C.medBlue }}>{fmtSAR(p.totalCollected)}</td>
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: p.totalOutstanding > 0 ? C.amber : C.slate }}>
+                    style={{ color: p.totalOutstanding > 0 ? C.red : C.slate }}>
                   {fmtSAR(p.totalOutstanding)}</td>
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
                     style={{ color: (p.totalPenalties ?? 0) > 0 ? C.red : C.slate }}>
                   {fmtSAR(p.totalPenalties ?? 0)}</td>
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: (p.totalNetRevenue ?? 0) >= 0 ? C.green : C.red }}>
+                    style={{ color: (p.totalNetRevenue ?? 0) >= 0 ? C.navy : C.red }}>
                   {fmtSAR(p.totalNetRevenue ?? 0)}</td>
                 <td className="px-2.5 py-1.5 text-right">
                   <span className="font-semibold" style={{ color: achColor }}>
@@ -398,18 +396,19 @@ function ManagementTable({ projects, loading }: { projects: any[]; loading: bool
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
                 style={{ color: C.charcoal }}>{fmtSAR(total.totalInvoiced)}</td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.green }}>{fmtSAR(total.totalCollected)}</td>
+                style={{ color: C.medBlue }}>{fmtSAR(total.totalCollected)}</td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.amber }}>{fmtSAR(total.totalOutstanding)}</td>
+                style={{ color: C.red }}>{fmtSAR(total.totalOutstanding)}</td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
                 style={{ color: total.totalPenalties > 0 ? C.red : C.slate }}>
               {fmtSAR(total.totalPenalties)}</td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: total.totalNetRevenue >= 0 ? C.green : C.red }}>
+                style={{ color: total.totalNetRevenue >= 0 ? C.navy : C.red }}>
               {fmtSAR(total.totalNetRevenue)}</td>
             <td className="px-2.5 py-2 text-right font-bold"
                 style={{ color: total.totalExpectedRevenue > 0
-                  ? (total.totalRevenue / total.totalExpectedRevenue >= 0.9 ? C.green : C.amber)
+                  ? (() => { const r = total.totalRevenue / total.totalExpectedRevenue;
+                             return r >= 1 ? C.navy : r >= 0.9 ? C.medBlue : C.red; })()
                   : C.slate }}>
               {total.totalExpectedRevenue > 0
                 ? fmtPct((total.totalRevenue / total.totalExpectedRevenue) * 100)
@@ -417,7 +416,8 @@ function ManagementTable({ projects, loading }: { projects: any[]; loading: bool
             </td>
             <td className="px-2.5 py-2 text-right font-bold"
                 style={{ color: total.totalInvoiced > 0
-                  ? (total.totalCollected / total.totalInvoiced >= 0.9 ? C.green : C.amber)
+                  ? (() => { const r = total.totalCollected / total.totalInvoiced;
+                             return r >= 1 ? C.navy : r >= 0.9 ? C.medBlue : C.red; })()
                   : C.slate }}>
               {total.totalInvoiced > 0
                 ? fmtPct((total.totalCollected / total.totalInvoiced) * 100)
@@ -485,11 +485,11 @@ export default function Dashboard() {
   };
   const hasFilters = !!(selectedProject || selectedYear || selectedMonth || dateFrom || dateTo);
 
-  // Collection donut data
+  // Collection donut data — ACES navy · red · critical dark only
   const donutData = summary ? [
-    { name: 'Collected',   value: summary.totalCollected,   color: C.green },
-    { name: 'Outstanding', value: summary.totalOutstanding, color: C.amber },
-    { name: 'Overdue',     value: summary.totalOverdue,     color: C.red   },
+    { name: 'Collected',   value: summary.totalCollected,   color: C.navy     },
+    { name: 'Outstanding', value: summary.totalOutstanding, color: C.red      },
+    { name: 'Overdue',     value: summary.totalOverdue,     color: C.critDark },
   ].filter(d => d.value > 0) : [];
 
   const lastUpdated = summary?.lastDataUpdate
@@ -665,8 +665,8 @@ export default function Dashboard() {
             label="Collected"
             value={summaryLoading ? '…' : fmtSAR(summary?.totalCollected ?? 0)}
             sub={summaryLoading ? '' : `${fmtPct(summary?.collectionRate ?? 0)} collection rate`}
-            valueColor={C.green}
-            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.green} viewBox="0 0 24 24" strokeWidth={2}><polyline points="20 6 9 17 4 12"/></svg>}
+            valueColor={C.medBlue}
+            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.medBlue} viewBox="0 0 24 24" strokeWidth={2}><polyline points="20 6 9 17 4 12"/></svg>}
           />
           <KpiCard
             label="Outstanding"
@@ -674,8 +674,8 @@ export default function Dashboard() {
             sub={summaryLoading ? '' : (summary?.totalOverdue ?? 0) > 0
               ? `${fmtSAR(summary!.totalOverdue)} overdue`
               : 'No overdue items'}
-            valueColor={(summary?.totalOutstanding ?? 0) > 0 ? C.amber : C.slate}
-            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.amber} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+            valueColor={(summary?.totalOutstanding ?? 0) > 0 ? C.red : C.slate}
+            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.red} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           />
           <KpiCard
             label="Penalties"
@@ -688,8 +688,8 @@ export default function Dashboard() {
             label="Net Revenue"
             value={summaryLoading ? '…' : fmtSAR(summary?.totalNetRevenue ?? 0)}
             sub="After penalties & deductions"
-            valueColor={(summary?.totalNetRevenue ?? 0) >= 0 ? C.green : C.red}
-            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.green} viewBox="0 0 24 24" strokeWidth={2}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>}
+            valueColor={(summary?.totalNetRevenue ?? 0) >= 0 ? C.navy : C.red}
+            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.navy} viewBox="0 0 24 24" strokeWidth={2}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>}
           />
         </div>
 
@@ -716,10 +716,10 @@ export default function Dashboard() {
                        fill={C.red} opacity={0.8} radius={[2,2,0,0]} maxBarSize={14} />
                   {/* Collected */}
                   <Line type="monotone" dataKey="collected" name="Collected"
-                        stroke={C.green} strokeWidth={2} dot={{ r: 2, fill: C.green }} />
+                        stroke={C.medBlue} strokeWidth={2} dot={{ r: 2, fill: C.medBlue }} />
                   {/* Net Revenue */}
                   <Line type="monotone" dataKey="netRevenue" name="Net Revenue"
-                        stroke={C.navyMid} strokeWidth={1.5} strokeDasharray="4 2"
+                        stroke={C.charcoal} strokeWidth={1.5} strokeDasharray="4 2"
                         dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
@@ -745,7 +745,7 @@ export default function Dashboard() {
                     <p className="text-[10px] font-semibold uppercase tracking-wide"
                        style={{ color: C.slate }}>Collection Rate</p>
                     <p className="text-2xl font-bold"
-                       style={{ color: (summary?.collectionRate ?? 0) >= 90 ? C.green : C.amber }}>
+                       style={{ color: C.navy }}>
                       {fmtPct(summary?.collectionRate ?? 0)}
                     </p>
                   </div>
@@ -790,7 +790,7 @@ export default function Dashboard() {
                   <Bar dataKey="invoiced" name="Invoiced"
                        fill={C.red} opacity={0.8} radius={[0,3,3,0]} maxBarSize={10} />
                   <Bar dataKey="collected" name="Collected"
-                       fill={C.green} radius={[0,3,3,0]} maxBarSize={10} />
+                       fill={C.medBlue} radius={[0,3,3,0]} maxBarSize={10} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -802,9 +802,9 @@ export default function Dashboard() {
                 {(performance ?? []).map(p => {
                   const pct = p.revenueAchievementPct;
                   const barPct = Math.min(pct, 100);
-                  // Color: green if on/above target, amber moderate, red critical, navy normal
-                  const color = pct >= 90 ? C.green
-                              : pct >= 70 ? C.amber
+                  // Navy = 100%+, medium blue = 90–99.99%, red = below 90%
+                  const color = pct >= 100 ? C.navy
+                              : pct >= 90  ? C.medBlue
                               : C.red;
                   return (
                     <div key={p.projectName}>

@@ -1,0 +1,167 @@
+REMOVE GREEN AND APPLY A STRICT ACES NAVY–RED–SLATE THEME
+
+The current dashboard still uses too much green. Green is dominating:
+
+* Collected KPI
+* Net Revenue KPI
+* Monthly collection line
+* Collection donut
+* Revenue Achievement bars
+* Project Financial Performance
+* Chart legends and labels
+
+This does not match the ACES corporate identity.
+
+1. Replace the Color System
+
+Use these global theme variables:
+
+```css
+:root {
+  --aces-navy: #122E64;
+  --aces-red: #EF1E34;
+  --aces-medium-blue: #485D86;
+  --aces-muted-blue: #6F82A6;
+  --aces-charcoal: #303846;
+  --aces-slate: #7B8495;
+  --aces-light-grey: #E7EAF0;
+  --aces-background: #F4F5F7;
+  --aces-white: #FFFFFF;
+  --aces-border: #D9DEE7;
+  --aces-muted-text: #687386;
+  --aces-critical-dark: #B51226;
+}
+```
+
+Remove the existing green color from the global dashboard theme.
+
+2. KPI Card Colors
+
+Use:
+
+* Work Order: ACES slate
+* Revenue: ACES navy
+* Deductible: ACES red
+* Invoiced: ACES medium blue
+* Collected: ACES muted blue
+* Outstanding: ACES red
+* Penalties: Dark ACES red
+* Net Revenue: ACES navy
+
+All KPI card labels should remain navy.
+
+Use red only for negative financial impacts such as:
+
+* Deductible
+* Outstanding
+* Penalties
+* Overdue
+
+Collected and Net Revenue should not be green. Use ACES blue shades instead.
+
+3. Monthly Financial Performance Palette
+
+Apply:
+
+* Work Order: `#7B8495`
+* Revenue: `#122E64`
+* Invoiced: `#EF1E34`
+* Collected: `#485D86`
+* Net Revenue: `#303846`
+
+Visual distinction:
+
+* Revenue: Solid navy column
+* Invoiced: Red outlined or narrow column
+* Collected: Solid medium-blue line
+* Net Revenue: Dark charcoal dashed line
+* Work Order: Slate-grey column
+
+Do not use green in this chart.
+
+4. Collection Overview Donut
+
+Replace the green donut with:
+
+* Collected: ACES navy `#122E64`
+* Outstanding: ACES red `#EF1E34`
+* Overdue: Dark red `#B51226`
+
+Display the Collection Rate in ACES navy.
+
+Use a white center and restrained navy labels.
+
+The largest donut segment should be ACES navy, not green.
+
+5. Revenue Achievement by Project
+
+Do not show all achievement bars in green.
+
+Use:
+
+* Standard achievement bar: ACES navy
+* Unfilled track: Light grey
+* Achievement below 90%: ACES red
+* Achievement between 90% and 99.99%: Medium blue
+* Achievement of 100%: ACES navy
+
+This chart should primarily appear navy and blue, with red used only to identify underperformance.
+
+6. Project Financial Performance
+
+Use:
+
+* Work Order: Slate grey
+* Revenue: ACES navy
+* Invoiced: ACES red
+* Collected: Medium blue
+* Net Revenue: Charcoal
+
+Do not use green.
+
+7. Status Indicators
+
+If a positive status needs to be shown:
+
+* Use a navy checkmark.
+* Use “Completed” in ACES navy.
+* Use a subtle light-blue badge.
+
+Reserve ACES red for warnings and negative financial conditions.
+
+Do not reintroduce green for normal success indicators.
+
+8. General Interface
+
+Maintain:
+
+* Navy header
+* Red header underline
+* White cards
+* Light-neutral background
+* Navy headings
+* Red section markers
+* Grey dividers
+* Red Update Data button
+
+Avoid:
+
+* Green text
+* Green progress bars
+* Green icons
+* Green chart lines
+* Green donut segments
+* Orange unless absolutely necessary
+* Multiple unrelated colors
+
+9. Final Visual Balance
+
+The finished dashboard should visually contain approximately:
+
+* 55% white and light grey
+* 25% ACES navy and blue shades
+* 10% slate and charcoal
+* 10% ACES red accents and negative indicators
+* 0% green in the main visual system
+
+Keep all existing data, calculations, filters, and 177 source records unchanged. This is a visual-theme correction only.
