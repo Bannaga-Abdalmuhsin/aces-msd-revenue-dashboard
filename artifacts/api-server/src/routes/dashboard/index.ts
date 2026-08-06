@@ -49,50 +49,101 @@ function buildBaseConditions(params: {
   return conditions;
 }
 
+/**
+ * Per-metric date filter helpers used when a From→To date range is active.
+ * Each metric is filtered against its own date column (revenue_month, invoice_date,
+ * or collected_date). When no date range is provided the helpers always return true
+ * so that the SQL-level year/month conditions still apply unmodified.
+ *
+ * Date strings are stored as YYYY-MM-DD; from/to are YYYY-MM.
+ * Comparison is done on the YYYY-MM prefix (string sort is correct for ISO dates).
+ */
+function makeMetricFilters(params: {
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  revenueYear?: number | null;
+  revenueMonth?: number | null;
+}) {
+  const { dateFrom, dateTo, revenueYear, revenueMonth } = params;
+  const usingRange = !!(dateFrom || dateTo);
+
+  // YYYY-MM-DD (or YYYY-MM-01) → "YYYY-MM" prefix check
+  const inRange = (dateStr: string | null | undefined): boolean => {
+    if (!dateStr) return false;
+    const ym = dateStr.slice(0, 7);
+    if (dateFrom && ym < dateFrom) return false;
+    if (dateTo   && ym > dateTo)   return false;
+    return true;
+  };
+
+  // Single year/month filter (used when no range is active)
+  const matchesYearMonth = (dateStr: string | null | undefined): boolean => {
+    if (!dateStr) return false;
+    if (revenueYear  && parseInt(dateStr.slice(0, 4)) !== revenueYear)  return false;
+    if (revenueMonth && parseInt(dateStr.slice(5, 7)) !== revenueMonth) return false;
+    return true;
+  };
+
+  return {
+    usingRange,
+    /** Revenue + Work Order are always gated on revenue_month */
+    revenueOk: (revenueMonthCol: string | null | undefined) =>
+      usingRange ? inRange(revenueMonthCol) : matchesYearMonth(revenueMonthCol),
+    /** Invoiced is gated on invoice_date when a range is active */
+    invoicedOk: (revenueMonthCol: string | null | undefined, invoiceDateCol: string | null | undefined) =>
+      usingRange ? inRange(invoiceDateCol) : matchesYearMonth(revenueMonthCol),
+    /** Collected is gated on collected_date when a range is active */
+    collectedOk: (revenueMonthCol: string | null | undefined, collectedDateCol: string | null | undefined) =>
+      usingRange ? inRange(collectedDateCol) : matchesYearMonth(revenueMonthCol),
+  };
+}
+
 // GET /dashboard/summary
 router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const parsed = GetDashboardSummaryQueryParams.safeParse(req.query);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const q = parsed.data;
-  const conditions = buildBaseConditions(q as Parameters<typeof buildBaseConditions>[0]);
 
-  // poValue = total work order for filtered project across ALL time (no date filter)
-  const poConditions = q.project ? [like(revenueRecordsTable.projectName, `%${q.project}%`)] : [];
+  // Project filter only in SQL — date filtering is done per-metric in JS
+  const projectCond = q.project ? [like(revenueRecordsTable.projectName, `%${q.project}%`)] : [];
 
   const today = new Date();
+  const mf = makeMetricFilters(q as Parameters<typeof makeMetricFilters>[0]);
 
-  const [records, poResult, lastUpdate] = await Promise.all([
-    db.select().from(revenueRecordsTable).where(conditions.length ? and(...conditions) : undefined),
-    db.select({
-      totalPoValue: sql<string>`COALESCE(SUM(${revenueRecordsTable.workOrder}::numeric), 0)`,
-    }).from(revenueRecordsTable).where(poConditions.length ? and(...poConditions) : undefined),
+  const [records, lastUpdate] = await Promise.all([
+    db.select().from(revenueRecordsTable).where(projectCond.length ? and(...projectCond) : undefined),
     db.select({ maxDate: sql<string | null>`MAX(${revenueRecordsTable.updatedAt})` }).from(revenueRecordsTable),
   ]);
 
   let totalWorkOrder = 0, totalRevenue = 0, totalDeductible = 0;
-  let totalInvoiced = 0, totalCollected = 0, totalOutstanding = 0;
+  let totalInvoiced = 0, totalCollected = 0;
   let totalOverdue = 0, totalPenalties = 0, totalNetRevenue = 0;
   let totalDays = 0, daysCount = 0;
 
   for (const r of records) {
-    const invoiced = toNum(r.invoiced);
-    const collected = toNum(r.collected);
-    totalWorkOrder += toNum(r.workOrder);
-    totalRevenue += toNum(r.revenue);
-    totalDeductible += toNum(r.deductible);
-    totalInvoiced += invoiced;
-    totalCollected += collected;
-    totalPenalties += toNum(r.penalties);
-    totalNetRevenue += toNum(r.netRevenue);
-    totalOutstanding += computeOutstanding(invoiced, collected);
-    totalOverdue += computeOverdue(invoiced, collected, r.dueDate, today);
-    if (r.days != null && collected > 0) { totalDays += r.days; daysCount++; }
+    // Revenue, Work Order, Deductible, Penalties, Net Revenue → revenue_month
+    if (mf.revenueOk(r.revenueMonth)) {
+      totalWorkOrder  += toNum(r.workOrder);
+      totalRevenue    += toNum(r.revenue);
+      totalDeductible += toNum(r.deductible);
+      totalPenalties  += toNum(r.penalties);
+      totalNetRevenue += toNum(r.netRevenue);
+    }
+    // Invoiced → invoice_date when range active, else revenue_month
+    if (mf.invoicedOk(r.revenueMonth, r.invoiceDate)) {
+      totalInvoiced += toNum(r.invoiced);
+    }
+    // Collected → collected_date when range active, else revenue_month
+    if (mf.collectedOk(r.revenueMonth, r.collectedDate)) {
+      const collected = toNum(r.collected);
+      totalCollected += collected;
+      totalOverdue   += computeOverdue(toNum(r.invoiced), collected, r.dueDate, today);
+      if (r.days != null && collected > 0) { totalDays += r.days; daysCount++; }
+    }
   }
 
-  // totalExpectedRevenue = workOrder sum for the filtered period
+  const totalOutstanding = computeOutstanding(totalInvoiced, totalCollected);
   const totalExpectedRevenue = totalWorkOrder;
-  // totalPoValue = workOrder sum all time (or for the filtered project)
-  const totalPoValue = toNum(poResult[0]?.totalPoValue ?? '0');
 
   res.json({
     totalWorkOrder,
@@ -104,7 +155,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     totalOverdue,
     totalPenalties,
     totalNetRevenue,
-    totalPoValue,
+    totalPoValue: totalWorkOrder,
     totalExpectedRevenue,
     collectionRate: safeDiv(totalCollected, totalInvoiced) * 100,
     revenueAchievementRate: safeDiv(totalRevenue, totalExpectedRevenue) * 100,
@@ -151,49 +202,42 @@ router.get("/dashboard/project-performance", async (req, res): Promise<void> => 
   const parsed = GetProjectPerformanceQueryParams.safeParse(req.query);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const q = parsed.data;
-  const conditions = buildBaseConditions(q as Parameters<typeof buildBaseConditions>[0]);
 
-  // Also need all-time workOrder per project for poValue (no date filter)
-  const projectConditions = q.project ? [like(revenueRecordsTable.projectName, `%${q.project}%`)] : [];
+  // Project filter only in SQL — date filtering is done per-metric in JS
+  const projectCond = q.project ? [like(revenueRecordsTable.projectName, `%${q.project}%`)] : [];
+  const mf = makeMetricFilters(q as Parameters<typeof makeMetricFilters>[0]);
 
-  const [records, allTimeWorkOrders] = await Promise.all([
-    db.select().from(revenueRecordsTable).where(conditions.length ? and(...conditions) : undefined),
-    db.select({
-      projectName: revenueRecordsTable.projectName,
-      totalWorkOrder: sql<string>`SUM(${revenueRecordsTable.workOrder}::numeric)`,
-    }).from(revenueRecordsTable)
-      .where(projectConditions.length ? and(...projectConditions) : undefined)
-      .groupBy(revenueRecordsTable.projectName),
-  ]);
+  const records = await db.select().from(revenueRecordsTable)
+    .where(projectCond.length ? and(...projectCond) : undefined);
 
-  const allTimeWOMap = new Map(allTimeWorkOrders.map(r => [r.projectName, toNum(r.totalWorkOrder)]));
+  const projectMap = new Map<string, {
+    workOrder: number; revenue: number;
+    invoiced: number; collected: number;
+  }>();
 
-  const projectMap = new Map<string, { workOrder: number; revenue: number; invoiced: number; collected: number }>();
   for (const r of records) {
     const name = r.projectName;
     if (!projectMap.has(name)) projectMap.set(name, { workOrder: 0, revenue: 0, invoiced: 0, collected: 0 });
     const p = projectMap.get(name)!;
-    p.workOrder += toNum(r.workOrder);
-    p.revenue += toNum(r.revenue);
-    p.invoiced += toNum(r.invoiced);
-    p.collected += toNum(r.collected);
+    if (mf.revenueOk(r.revenueMonth)) {
+      p.workOrder += toNum(r.workOrder);
+      p.revenue   += toNum(r.revenue);
+    }
+    if (mf.invoicedOk(r.revenueMonth, r.invoiceDate))   p.invoiced   += toNum(r.invoiced);
+    if (mf.collectedOk(r.revenueMonth, r.collectedDate)) p.collected  += toNum(r.collected);
   }
 
-  res.json(Array.from(projectMap.entries()).map(([name, vals]) => {
-    const expectedRevenue = vals.workOrder; // work order for the period = expected
-    const poValue = allTimeWOMap.get(name) ?? vals.workOrder; // all-time work order = total PO
-    return {
-      projectName: name,
-      workOrder: vals.workOrder,
-      revenue: vals.revenue,
-      revenueAchievementPct: safeDiv(vals.revenue, expectedRevenue || 1) * 100,
-      invoiced: vals.invoiced,
-      collected: vals.collected,
-      outstanding: computeOutstanding(vals.invoiced, vals.collected),
-      expectedRevenue,
-      poValue,
-    };
-  }));
+  res.json(Array.from(projectMap.entries()).map(([name, vals]) => ({
+    projectName: name,
+    workOrder: vals.workOrder,
+    revenue: vals.revenue,
+    revenueAchievementPct: safeDiv(vals.revenue, vals.workOrder || 1) * 100,
+    invoiced: vals.invoiced,
+    collected: vals.collected,
+    outstanding: computeOutstanding(vals.invoiced, vals.collected),
+    expectedRevenue: vals.workOrder,
+    poValue: vals.workOrder,
+  })));
 });
 
 // GET /dashboard/aging
