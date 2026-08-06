@@ -50,11 +50,35 @@ function normalizeDate(value: unknown): string | undefined {
     }
   }
   const str = String(value).trim();
+
+  // YYYY-MM (month-only) → YYYY-MM-01
+  if (/^\d{4}-\d{2}$/.test(str)) return `${str}-01`;
+
+  // MM/YYYY or M/YYYY → YYYY-MM-01
+  const mdy = str.match(/^(\d{1,2})\/(\d{4})$/);
+  if (mdy) return `${mdy[2]}-${String(mdy[1]).padStart(2, '0')}-01`;
+
+  // "Jan 2024" / "January 2024" / "Jan-2024"
+  const monthNames: Record<string, string> = {
+    jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
+    jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12',
+  };
+  const mon = str.match(/^([a-zA-Z]{3,9})[\s\-\/](\d{4})$/);
+  if (mon) {
+    const m = monthNames[mon[1].slice(0,3).toLowerCase()];
+    if (m) return `${mon[2]}-${m}-01`;
+  }
+
+  // Full date string parseable by Date
   const d = new Date(str);
   if (!Number.isNaN(d.getTime())) {
-    return d.toISOString().slice(0, 10);
+    // Avoid timezone shift: use UTC parts
+    const y = d.getUTCFullYear();
+    const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dy = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${mo}-${dy}`;
   }
-  return str || undefined;
+  return undefined;
 }
 
 function toNumber(value: unknown): number {
@@ -174,16 +198,27 @@ export default function ImportPage() {
       { data: { records, allowDuplicateInvoices: allowDuplicates } },
       {
         onSuccess: (result) => {
-          toast({
-            title: 'Import complete',
-            description: `${result.imported} records imported, ${result.skipped} skipped.`,
-          });
+          const rowErrors = (result as any).errors as string[] | undefined;
+          if (rowErrors && rowErrors.length > 0) {
+            toast({
+              title: `Import complete with errors — ${result.imported} imported, ${result.skipped} skipped`,
+              description: rowErrors.slice(0, 3).join(' | ') + (rowErrors.length > 3 ? ` … (+${rowErrors.length - 3} more)` : ''),
+              variant: 'destructive',
+            });
+          } else {
+            toast({
+              title: 'Import complete',
+              description: `${result.imported} records imported, ${result.skipped} skipped.`,
+            });
+          }
           invalidateAll();
           setParsedRows([]);
           setFileName(null);
         },
-        onError: (err) => {
-          toast({ title: 'Import failed', description: String(err), variant: 'destructive' });
+        onError: (err: unknown) => {
+          const apiErr = err as { message?: string; data?: { error?: string } };
+          const detail = apiErr?.data?.error ?? apiErr?.message ?? String(err);
+          toast({ title: 'Import failed', description: detail, variant: 'destructive' });
         },
       },
     );
@@ -236,6 +271,30 @@ export default function ImportPage() {
 
   function handleExportPdf() {
     window.print();
+  }
+
+  function handleDownloadTemplate() {
+    const ws = XLSX.utils.json_to_sheet([
+      {
+        'Project Name': 'Example Project A',
+        'Revenue Month': '2024-01',
+        'Work Order': 5000000,
+        'Revenue': 4800000,
+        'Deductible': 200000,
+        'Invoiced': 4800000,
+        'Invoice No': 'INV-2024-001',
+        'Invoice Date': '2024-01-15',
+        'Due Date': '2024-02-15',
+        'Collected': 4800000,
+        'Collected Date': '2024-02-10',
+        'Days': 26,
+        'Penalties': 0,
+        'Net Revenue': 4800000,
+      },
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Revenue Records');
+    XLSX.writeFile(wb, 'aces-msd-import-template.xlsx');
   }
 
   return (
