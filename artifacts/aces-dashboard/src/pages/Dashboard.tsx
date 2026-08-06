@@ -12,6 +12,7 @@ import {
 } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
 import logoUrl from '@assets/MSD_Logo_1785945599981.png';
+import riyalSignUrl from '@assets/riyal-sign.png';
 
 // ── Brand palette – strict ACES Navy · Red · Slate theme ─────────────
 const C = {
@@ -30,10 +31,23 @@ const C = {
 };
 
 // ── Formatters ───────────────────────────────────────────────────────
-/** Full SAR value with 2 decimal places – no K / M / B abbreviations */
-function fmtSAR(n: number): string {
-  if (!isFinite(n)) return '﷼ 0.00';
-  return `﷼ ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/** Numeric-only, 2 decimal places – used by RiyalAmt and string contexts */
+function fmtNum(n: number): string {
+  if (!isFinite(n)) return '0.00';
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+/** For chart tooltips / string-only contexts */
+function fmtSARStr(n: number): string { return `${fmtNum(n)}`; }
+
+/** Inline riyal-sign + number, rendered as JSX everywhere */
+function RiyalAmt({ n, style }: { n: number; style?: React.CSSProperties }) {
+  return (
+    <span className="inline-flex items-center gap-0.5" style={style}>
+      <img src={riyalSignUrl} alt="﷼" className="inline-block"
+           style={{ height: '0.9em', width: 'auto', verticalAlign: 'middle', filter: 'brightness(0) saturate(100%)' }} />
+      {fmtNum(n)}
+    </span>
+  );
 }
 /** Compact numeric for chart axes only (no SAR prefix, 0 decimals) */
 function fmtAxis(n: number): string {
@@ -64,8 +78,8 @@ const Loading = () => (
 // ── KPI Card ──────────────────────────────────────────────────────────
 interface KpiCardProps {
   label: string;
-  value: string;
-  sub?: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
   valueColor?: string;
   icon?: React.ReactNode;
 }
@@ -81,12 +95,12 @@ function KpiCard({ label, value, sub, valueColor = C.charcoal, icon }: KpiCardPr
         <p className="text-[10px] font-semibold uppercase tracking-wider truncate"
            style={{ color: C.navy }}>{label}</p>
       </div>
-      <p className="font-bold leading-tight break-all"
+      <div className="font-bold leading-tight break-all"
          style={{
            color: valueColor,
            fontSize: 'clamp(0.6rem, 1.1vw, 0.8rem)',
-         }}>{value}</p>
-      {sub && <p className="text-[10px] truncate" style={{ color: C.slate }}>{sub}</p>}
+         }}>{value}</div>
+      {sub && <div className="text-[10px] truncate" style={{ color: C.slate }}>{sub}</div>}
     </div>
   );
 }
@@ -123,7 +137,7 @@ function ChartTooltip({ active, payload, label }: any) {
         <div key={p.name} className="flex justify-between gap-3 py-0.5">
           <span style={{ color: p.color }}>{p.name}</span>
           <span className="font-medium" style={{ color: C.charcoal }}>
-            {typeof p.value === 'number' ? fmtSAR(p.value) : p.value}
+            {typeof p.value === 'number' ? <RiyalAmt n={p.value} /> : p.value}
           </span>
         </div>
       ))}
@@ -349,25 +363,25 @@ function ManagementTable({ projects, loading }: { projects: any[]; loading: bool
                   {p.contractStart?.slice(0, 7) ?? '—'} → {p.contractEnd?.slice(0, 7) ?? '—'}
                 </td>
                 <td className="px-2.5 py-1.5 text-right font-medium whitespace-nowrap"
-                    style={{ color: C.navy }}>{fmtSAR(p.poValue)}</td>
+                    style={{ color: C.navy }}><RiyalAmt n={p.poValue} /></td>
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: C.navy }}>{fmtSAR(p.totalRevenue)}</td>
+                    style={{ color: C.navy }}><RiyalAmt n={p.totalRevenue} /></td>
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
                     style={{ color: (p.totalDeductible ?? 0) > 0 ? C.red : C.slate }}>
-                  {fmtSAR(p.totalDeductible ?? 0)}</td>
+                  <RiyalAmt n={p.totalDeductible ?? 0} /></td>
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: C.charcoal }}>{fmtSAR(p.totalInvoiced)}</td>
+                    style={{ color: C.charcoal }}><RiyalAmt n={p.totalInvoiced} /></td>
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: C.medBlue }}>{fmtSAR(p.totalCollected)}</td>
+                    style={{ color: C.medBlue }}><RiyalAmt n={p.totalCollected} /></td>
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
                     style={{ color: p.totalOutstanding > 0 ? C.red : C.slate }}>
-                  {fmtSAR(p.totalOutstanding)}</td>
+                  <RiyalAmt n={p.totalOutstanding} /></td>
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
                     style={{ color: (p.totalPenalties ?? 0) > 0 ? C.red : C.slate }}>
-                  {fmtSAR(p.totalPenalties ?? 0)}</td>
+                  <RiyalAmt n={p.totalPenalties ?? 0} /></td>
                 <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
                     style={{ color: (p.totalNetRevenue ?? 0) >= 0 ? C.navy : C.red }}>
-                  {fmtSAR(p.totalNetRevenue ?? 0)}</td>
+                  <RiyalAmt n={p.totalNetRevenue ?? 0} /></td>
                 <td className="px-2.5 py-1.5 text-right">
                   <span className="font-semibold" style={{ color: achColor }}>
                     {fmtPct(achPct)}
@@ -387,24 +401,24 @@ function ManagementTable({ projects, loading }: { projects: any[]; loading: bool
             <td className="px-2.5 py-2 font-bold" colSpan={3}
                 style={{ color: C.navy }}>Portfolio Total</td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.navy }}>{fmtSAR(total.poValue)}</td>
+                style={{ color: C.navy }}><RiyalAmt n={total.poValue} /></td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.navy }}>{fmtSAR(total.totalRevenue)}</td>
+                style={{ color: C.navy }}><RiyalAmt n={total.totalRevenue} /></td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
                 style={{ color: total.totalDeductible > 0 ? C.red : C.slate }}>
-              {fmtSAR(total.totalDeductible)}</td>
+              <RiyalAmt n={total.totalDeductible} /></td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.charcoal }}>{fmtSAR(total.totalInvoiced)}</td>
+                style={{ color: C.charcoal }}><RiyalAmt n={total.totalInvoiced} /></td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.medBlue }}>{fmtSAR(total.totalCollected)}</td>
+                style={{ color: C.medBlue }}><RiyalAmt n={total.totalCollected} /></td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.red }}>{fmtSAR(total.totalOutstanding)}</td>
+                style={{ color: C.red }}><RiyalAmt n={total.totalOutstanding} /></td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
                 style={{ color: total.totalPenalties > 0 ? C.red : C.slate }}>
-              {fmtSAR(total.totalPenalties)}</td>
+              <RiyalAmt n={total.totalPenalties} /></td>
             <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
                 style={{ color: total.totalNetRevenue >= 0 ? C.navy : C.red }}>
-              {fmtSAR(total.totalNetRevenue)}</td>
+              <RiyalAmt n={total.totalNetRevenue} /></td>
             <td className="px-2.5 py-2 text-right font-bold"
                 style={{ color: total.totalExpectedRevenue > 0
                   ? (() => { const r = total.totalRevenue / total.totalExpectedRevenue;
@@ -651,45 +665,45 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <KpiCard
             label="Work Order"
-            value={summaryLoading ? '…' : fmtSAR(summary?.totalPoValue ?? 0)}
+            value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalPoValue ?? 0} />}
             sub="Total contracted (all time)"
             valueColor={C.navy}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.navy} viewBox="0 0 24 24" strokeWidth={2}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>}
           />
           <KpiCard
             label="Revenue"
-            value={summaryLoading ? '…' : fmtSAR(summary?.totalRevenue ?? 0)}
+            value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalRevenue ?? 0} />}
             sub={summaryLoading ? '' : `${fmtPct(summary?.revenueAchievementRate ?? 0)} of work order`}
             valueColor={C.navy}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.navy} viewBox="0 0 24 24" strokeWidth={2}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>}
           />
           <KpiCard
             label="Invoiced"
-            value={summaryLoading ? '…' : fmtSAR(summary?.totalInvoiced ?? 0)}
+            value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalInvoiced ?? 0} />}
             sub={summaryLoading ? '' : `${fmtPct(summary?.invoiceConversionRate ?? 0)} of revenue`}
             valueColor={C.charcoal}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.charcoal} viewBox="0 0 24 24" strokeWidth={2}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>}
           />
           <KpiCard
             label="Collected"
-            value={summaryLoading ? '…' : fmtSAR(summary?.totalCollected ?? 0)}
+            value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalCollected ?? 0} />}
             sub={summaryLoading ? '' : `${fmtPct(summary?.collectionRate ?? 0)} collection rate`}
             valueColor={C.medBlue}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.medBlue} viewBox="0 0 24 24" strokeWidth={2}><polyline points="20 6 9 17 4 12"/></svg>}
           />
           <KpiCard
             label="Uninvoiced"
-            value={summaryLoading ? '…' : fmtSAR((summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0))}
+            value={summaryLoading ? '…' : <RiyalAmt n={(summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0)} />}
             sub="Revenue minus Invoiced"
             valueColor={((summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0)) > 0 ? C.red : C.slate}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.red} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           />
           <KpiCard
             label="Net Revenue"
-            value={summaryLoading ? '…' : fmtSAR(summary?.totalNetRevenue ?? 0)}
+            value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalNetRevenue ?? 0} />}
             sub="After penalties & deductions"
             valueColor={(summary?.totalNetRevenue ?? 0) >= 0 ? C.navy : C.red}
-            icon={<span className="text-sm font-bold leading-none" style={{ color: C.navy }}>﷼</span>}
+            icon={<img src={riyalSignUrl} alt="﷼" style={{ height: '14px', width: 'auto', filter: 'brightness(0) saturate(100%)', opacity: 0.7 }} />}
           />
         </div>
 
@@ -738,7 +752,7 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
                            startAngle={90} endAngle={-270}>
                         {donutData.map((d, i) => <Cell key={i} fill={d.color} />)}
                       </Pie>
-                      <Tooltip formatter={(v: number) => [fmtSAR(v), '']} />
+                      <Tooltip formatter={(v: number) => [fmtSARStr(v), '']} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -757,7 +771,7 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
                            style={{ background: d.color }} />
                       <p className="text-[10px]" style={{ color: C.slate }}>{d.name}</p>
                       <p className="text-[10px] font-bold break-all" style={{ color: d.color }}>
-                        {fmtSAR(d.value)}
+                        <RiyalAmt n={d.value} />
                       </p>
                     </div>
                   ))}
@@ -823,10 +837,10 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
                       </div>
                       <div className="flex justify-between mt-0.5">
                         <span className="text-[9px]" style={{ color: C.slate }}>
-                          Rev: {fmtSAR(p.revenue)}
+                          Rev: <RiyalAmt n={p.revenue} />
                         </span>
                         <span className="text-[9px]" style={{ color: C.slate }}>
-                          WO: {fmtSAR(p.workOrder)}
+                          WO: <RiyalAmt n={p.workOrder} />
                         </span>
                       </div>
                     </div>
