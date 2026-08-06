@@ -631,8 +631,8 @@ export default function Dashboard() {
 
       <main className="max-w-screen-2xl mx-auto px-6 py-5 space-y-5">
 
-        {/* ── 8 KPI CARDS ──────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 2xl:grid-cols-8 gap-3">
+        {/* ── 6 KPI CARDS ──────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <KpiCard
             label="Work Order"
             value={summaryLoading ? '…' : fmtSAR(summary?.totalPoValue ?? 0)}
@@ -646,13 +646,6 @@ export default function Dashboard() {
             sub={summaryLoading ? '' : `${fmtPct(summary?.revenueAchievementRate ?? 0)} of work order`}
             valueColor={C.navy}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.navy} viewBox="0 0 24 24" strokeWidth={2}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>}
-          />
-          <KpiCard
-            label="Deductible"
-            value={summaryLoading ? '…' : fmtSAR(summary?.totalDeductible ?? 0)}
-            sub="Withheld from revenue"
-            valueColor={(summary?.totalDeductible ?? 0) > 0 ? C.red : C.slate}
-            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.red} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>}
           />
           <KpiCard
             label="Invoiced"
@@ -669,20 +662,11 @@ export default function Dashboard() {
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.medBlue} viewBox="0 0 24 24" strokeWidth={2}><polyline points="20 6 9 17 4 12"/></svg>}
           />
           <KpiCard
-            label="Outstanding"
-            value={summaryLoading ? '…' : fmtSAR(summary?.totalOutstanding ?? 0)}
-            sub={summaryLoading ? '' : (summary?.totalOverdue ?? 0) > 0
-              ? `${fmtSAR(summary!.totalOverdue)} overdue`
-              : 'No overdue items'}
-            valueColor={(summary?.totalOutstanding ?? 0) > 0 ? C.red : C.slate}
+            label="Uninvoiced"
+            value={summaryLoading ? '…' : fmtSAR((summary?.totalPoValue ?? 0) - (summary?.totalInvoiced ?? 0))}
+            sub="Work Order minus Invoiced"
+            valueColor={((summary?.totalPoValue ?? 0) - (summary?.totalInvoiced ?? 0)) > 0 ? C.red : C.slate}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.red} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
-          />
-          <KpiCard
-            label="Penalties"
-            value={summaryLoading ? '…' : fmtSAR(summary?.totalPenalties ?? 0)}
-            sub="Applied deductions"
-            valueColor={(summary?.totalPenalties ?? 0) > 0 ? C.red : C.slate}
-            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.red} viewBox="0 0 24 24" strokeWidth={2}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>}
           />
           <KpiCard
             label="Net Revenue"
