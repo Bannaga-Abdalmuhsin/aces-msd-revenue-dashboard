@@ -18,6 +18,7 @@ import {
   computeOverdue,
   getAgingDays,
   agingBucket,
+  makeMetricFilters,
 } from "../../lib/businessLogic";
 
 const router: IRouter = Router();
@@ -47,55 +48,6 @@ function buildBaseConditions(params: {
     conditions.push(sql`${revenueRecordsTable.revenueMonth}::date <= (DATE_TRUNC('month', ${to}::date) + INTERVAL '1 month - 1 day')::date`);
   }
   return conditions;
-}
-
-/**
- * Per-metric date filter helpers used when a From→To date range is active.
- * Each metric is filtered against its own date column (revenue_month, invoice_date,
- * or collected_date). When no date range is provided the helpers always return true
- * so that the SQL-level year/month conditions still apply unmodified.
- *
- * Date strings are stored as YYYY-MM-DD; from/to are YYYY-MM.
- * Comparison is done on the YYYY-MM prefix (string sort is correct for ISO dates).
- */
-function makeMetricFilters(params: {
-  dateFrom?: string | null;
-  dateTo?: string | null;
-  revenueYear?: number | null;
-  revenueMonth?: number | null;
-}) {
-  const { dateFrom, dateTo, revenueYear, revenueMonth } = params;
-  const usingRange = !!(dateFrom || dateTo);
-
-  // YYYY-MM-DD (or YYYY-MM-01) → "YYYY-MM" prefix check
-  const inRange = (dateStr: string | null | undefined): boolean => {
-    if (!dateStr) return false;
-    const ym = dateStr.slice(0, 7);
-    if (dateFrom && ym < dateFrom) return false;
-    if (dateTo   && ym > dateTo)   return false;
-    return true;
-  };
-
-  // Single year/month filter (used when no range is active)
-  const matchesYearMonth = (dateStr: string | null | undefined): boolean => {
-    if (!dateStr) return false;
-    if (revenueYear  && parseInt(dateStr.slice(0, 4)) !== revenueYear)  return false;
-    if (revenueMonth && parseInt(dateStr.slice(5, 7)) !== revenueMonth) return false;
-    return true;
-  };
-
-  return {
-    usingRange,
-    /** Revenue + Work Order are always gated on revenue_month */
-    revenueOk: (revenueMonthCol: string | null | undefined) =>
-      usingRange ? inRange(revenueMonthCol) : matchesYearMonth(revenueMonthCol),
-    /** Invoiced is gated on invoice_date when a range is active */
-    invoicedOk: (revenueMonthCol: string | null | undefined, invoiceDateCol: string | null | undefined) =>
-      usingRange ? inRange(invoiceDateCol) : matchesYearMonth(revenueMonthCol),
-    /** Collected is gated on collected_date when a range is active */
-    collectedOk: (revenueMonthCol: string | null | undefined, collectedDateCol: string | null | undefined) =>
-      usingRange ? inRange(collectedDateCol) : matchesYearMonth(revenueMonthCol),
-  };
 }
 
 // GET /dashboard/summary

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, desc, and, like } from "drizzle-orm";
+import { eq, sql, desc, and, like, inArray } from "drizzle-orm";
 import { db, projectsTable, revenueRecordsTable } from "@workspace/db";
 import {
   CreateProjectBody,
@@ -14,6 +14,7 @@ import {
   enrichRecord,
   computeOutstanding,
   computeOverdue,
+  makeMetricFilters,
 } from "../../lib/businessLogic";
 import { logAudit } from "../../lib/audit";
 
@@ -29,36 +30,20 @@ interface ProjectFilter {
 
 async function buildProjectSummaries(filterProjectId?: number, filter?: ProjectFilter) {
   const today = new Date();
+  const mf = makeMetricFilters({
+    dateFrom: filter?.dateFrom,
+    dateTo: filter?.dateTo,
+    revenueYear: filter?.revenueYear,
+    revenueMonth: filter?.revenueMonth,
+  });
 
-  // Date/range conditions applied to the LEFT JOIN ON clause so that projects
-  // with no matching revenue records still appear with zero totals (not excluded).
-  const joinConds: ReturnType<typeof sql>[] = [];
-  if (filter?.revenueYear) {
-    joinConds.push(sql`EXTRACT(YEAR FROM ${revenueRecordsTable.revenueMonth}) = ${filter.revenueYear}`);
-  }
-  if (filter?.revenueMonth) {
-    joinConds.push(sql`EXTRACT(MONTH FROM ${revenueRecordsTable.revenueMonth}) = ${filter.revenueMonth}`);
-  }
-  if (filter?.dateFrom) {
-    const from = `${filter.dateFrom}-01`;
-    joinConds.push(sql`${revenueRecordsTable.revenueMonth} >= ${from}::date`);
-  }
-  if (filter?.dateTo) {
-    const to = `${filter.dateTo}-01`;
-    joinConds.push(sql`${revenueRecordsTable.revenueMonth} <= (DATE_TRUNC('month', ${to}::date) + INTERVAL '1 month - 1 day')::date`);
-  }
-
-  const joinCondition = and(
-    eq(revenueRecordsTable.projectId, projectsTable.id),
-    ...(joinConds as any[]),
-  );
-
-  // WHERE conditions: filter project rows by id or exact name
+  // Fetch all projects (metadata only — no revenue aggregation in SQL so we can
+  // apply per-metric date filtering in JS)
   const whereParts = [];
   if (filterProjectId != null) whereParts.push(eq(projectsTable.id, filterProjectId));
   if (filter?.project) whereParts.push(eq(projectsTable.name, filter.project));
 
-  const rows = await db
+  const projectRows = await db
     .select({
       id: projectsTable.id,
       name: projectsTable.name,
@@ -67,80 +52,97 @@ async function buildProjectSummaries(filterProjectId?: number, filter?: ProjectF
       contractEnd: projectsTable.contractEnd,
       poValueOverride: projectsTable.poValue,
       expectedMonthlyRevenueOverride: projectsTable.expectedMonthlyRevenue,
-      totalWorkOrder: sql<string>`COALESCE(SUM(${revenueRecordsTable.workOrder}), 0)`,
-      totalRevenue: sql<string>`COALESCE(SUM(${revenueRecordsTable.revenue}), 0)`,
-      totalDeductible: sql<string>`COALESCE(SUM(${revenueRecordsTable.deductible}), 0)`,
-      totalInvoiced: sql<string>`COALESCE(SUM(${revenueRecordsTable.invoiced}), 0)`,
-      totalCollected: sql<string>`COALESCE(SUM(${revenueRecordsTable.collected}), 0)`,
-      totalPenalties: sql<string>`COALESCE(SUM(${revenueRecordsTable.penalties}), 0)`,
-      totalNetRevenue: sql<string>`COALESCE(SUM(${revenueRecordsTable.netRevenue}), 0)`,
-      latestRevenueMonth: sql<string | null>`MAX(${revenueRecordsTable.revenueMonth})`,
-      latestInvoiceDate: sql<string | null>`MAX(${revenueRecordsTable.invoiceDate})`,
-      avgDays: sql<string | null>`AVG(CASE WHEN ${revenueRecordsTable.days} IS NOT NULL AND ${revenueRecordsTable.collected} > 0 THEN ${revenueRecordsTable.days} END)`,
     })
     .from(projectsTable)
-    .leftJoin(revenueRecordsTable, joinCondition)
     .where(whereParts.length ? and(...whereParts) : undefined)
-    .groupBy(
-      projectsTable.id, projectsTable.name, projectsTable.status,
-      projectsTable.contractStart, projectsTable.contractEnd,
-      projectsTable.poValue, projectsTable.expectedMonthlyRevenue,
-    )
     .orderBy(projectsTable.name);
 
-  // For outstanding/overdue computation fetch filtered records individually
-  const recordsConds = [];
-  if (filterProjectId != null) recordsConds.push(eq(revenueRecordsTable.projectId, filterProjectId));
-  if (filter?.project) recordsConds.push(eq(revenueRecordsTable.projectName, filter.project));
-  if (filter?.revenueYear) {
-    recordsConds.push(sql`EXTRACT(YEAR FROM ${revenueRecordsTable.revenueMonth}) = ${filter.revenueYear}`);
-  }
-  if (filter?.revenueMonth) {
-    recordsConds.push(sql`EXTRACT(MONTH FROM ${revenueRecordsTable.revenueMonth}) = ${filter.revenueMonth}`);
-  }
-  if (filter?.dateFrom) {
-    const from = `${filter.dateFrom}-01`;
-    recordsConds.push(sql`${revenueRecordsTable.revenueMonth} >= ${from}::date`);
-  }
-  if (filter?.dateTo) {
-    const to = `${filter.dateTo}-01`;
-    recordsConds.push(sql`${revenueRecordsTable.revenueMonth} <= (DATE_TRUNC('month', ${to}::date) + INTERVAL '1 month - 1 day')::date`);
-  }
+  if (!projectRows.length) return [];
+
+  // Fetch all revenue records for the matching projects — date filtering happens in JS
+  const projectIds = projectRows.map(p => p.id);
 
   const allRecords = await db.select({
-    projectId: revenueRecordsTable.projectId,
-    invoiced: revenueRecordsTable.invoiced,
-    collected: revenueRecordsTable.collected,
-    dueDate: revenueRecordsTable.dueDate,
+    projectId:     revenueRecordsTable.projectId,
+    revenueMonth:  revenueRecordsTable.revenueMonth,
+    invoiceDate:   revenueRecordsTable.invoiceDate,
+    collectedDate: revenueRecordsTable.collectedDate,
+    dueDate:       revenueRecordsTable.dueDate,
+    workOrder:     revenueRecordsTable.workOrder,
+    revenue:       revenueRecordsTable.revenue,
+    deductible:    revenueRecordsTable.deductible,
+    invoiced:      revenueRecordsTable.invoiced,
+    collected:     revenueRecordsTable.collected,
+    penalties:     revenueRecordsTable.penalties,
+    netRevenue:    revenueRecordsTable.netRevenue,
+    days:          revenueRecordsTable.days,
   }).from(revenueRecordsTable)
-    .where(recordsConds.length ? and(...recordsConds) : undefined);
+    .where(inArray(revenueRecordsTable.projectId, projectIds));
 
-  const recordsByProject = new Map<number, Array<{ invoiced: number; collected: number; dueDate: string | null }>>();
-  for (const r of allRecords) {
-    if (r.projectId == null) continue;
-    if (!recordsByProject.has(r.projectId)) recordsByProject.set(r.projectId, []);
-    recordsByProject.get(r.projectId)!.push({
-      invoiced: toNum(r.invoiced), collected: toNum(r.collected), dueDate: r.dueDate ?? null,
+  // Aggregate per project with per-metric date filtering
+  type ProjectAgg = {
+    workOrder: number; revenue: number; deductible: number;
+    invoiced: number; collected: number; outstanding: number; overdue: number;
+    penalties: number; netRevenue: number;
+    totalDays: number; daysCount: number;
+    latestRevenueMonth: string | null; latestInvoiceDate: string | null;
+  };
+  const agg = new Map<number, ProjectAgg>();
+  for (const pid of projectIds) {
+    agg.set(pid, {
+      workOrder: 0, revenue: 0, deductible: 0,
+      invoiced: 0, collected: 0, outstanding: 0, overdue: 0,
+      penalties: 0, netRevenue: 0,
+      totalDays: 0, daysCount: 0,
+      latestRevenueMonth: null, latestInvoiceDate: null,
     });
   }
 
-  return rows.map((row) => {
-    const totalRevenue = toNum(row.totalRevenue);
-    const totalInvoiced = toNum(row.totalInvoiced);
-    const totalCollected = toNum(row.totalCollected);
-    // poValue = total work order from revenue records (all-time contracted amount)
-    const poValue = toNum(row.totalWorkOrder);
-    // totalExpectedRevenue = same as poValue (all work orders = expected revenue to date)
-    const totalExpectedRevenue = poValue;
-    // expectedMonthlyRevenue = keep user-editable override if set, else not shown
-    const expectedMonthlyRevenue = toNum(row.expectedMonthlyRevenueOverride ?? '0');
+  for (const r of allRecords) {
+    if (r.projectId == null) continue;
+    const a = agg.get(r.projectId);
+    if (!a) continue;
 
-    const recs = recordsByProject.get(row.id) ?? [];
-    let totalOutstanding = 0, totalOverdue = 0;
-    for (const r of recs) {
-      totalOutstanding += computeOutstanding(r.invoiced, r.collected);
-      totalOverdue += computeOverdue(r.invoiced, r.collected, r.dueDate, today);
+    // Revenue / Work Order / Deductible / Penalties / NetRevenue → revenue_month
+    if (mf.revenueOk(r.revenueMonth)) {
+      a.workOrder  += toNum(r.workOrder);
+      a.revenue    += toNum(r.revenue);
+      a.deductible += toNum(r.deductible);
+      a.penalties  += toNum(r.penalties);
+      a.netRevenue += toNum(r.netRevenue);
+      if (r.revenueMonth && (!a.latestRevenueMonth || r.revenueMonth > a.latestRevenueMonth))
+        a.latestRevenueMonth = r.revenueMonth;
     }
+
+    // Invoiced → invoice_date when range active
+    if (mf.invoicedOk(r.revenueMonth, r.invoiceDate)) {
+      a.invoiced += toNum(r.invoiced);
+      if (r.invoiceDate && (!a.latestInvoiceDate || r.invoiceDate > a.latestInvoiceDate))
+        a.latestInvoiceDate = r.invoiceDate;
+    }
+
+    // Collected → collected_date when range active
+    if (mf.collectedOk(r.revenueMonth, r.collectedDate)) {
+      const collected = toNum(r.collected);
+      a.collected += collected;
+      a.overdue   += computeOverdue(toNum(r.invoiced), collected, r.dueDate, today);
+      if (r.days != null && collected > 0) { a.totalDays += r.days; a.daysCount++; }
+    }
+  }
+
+  // Recompute outstanding after all rows are tallied (invoiced and collected may
+  // filter by different date columns so we can't do it per-row)
+  for (const a of agg.values()) {
+    a.outstanding = computeOutstanding(a.invoiced, a.collected);
+  }
+
+  return projectRows.map((row) => {
+    const a = agg.get(row.id) ?? {
+      workOrder: 0, revenue: 0, deductible: 0, invoiced: 0, collected: 0,
+      outstanding: 0, overdue: 0, penalties: 0, netRevenue: 0,
+      totalDays: 0, daysCount: 0, latestRevenueMonth: null, latestInvoiceDate: null,
+    };
+    const expectedMonthlyRevenue = toNum(row.expectedMonthlyRevenueOverride ?? '0');
 
     return {
       id: row.id,
@@ -148,24 +150,24 @@ async function buildProjectSummaries(filterProjectId?: number, filter?: ProjectF
       status: row.status,
       contractStart: row.contractStart ?? null,
       contractEnd: row.contractEnd ?? null,
-      poValue,
+      poValue: a.workOrder,
       expectedMonthlyRevenue,
-      totalExpectedRevenue,
-      remainingPO: Math.max(poValue - totalRevenue, 0),
-      totalWorkOrder: toNum(row.totalWorkOrder),
-      totalRevenue,
-      totalDeductible: toNum(row.totalDeductible),
-      totalInvoiced,
-      totalCollected,
-      totalOutstanding,
-      totalOverdue,
-      totalPenalties: toNum(row.totalPenalties),
-      totalNetRevenue: toNum(row.totalNetRevenue),
-      revenueAchievementPct: safeDiv(totalRevenue, totalExpectedRevenue || toNum(row.totalWorkOrder)) * 100,
-      collectionPct: safeDiv(totalCollected, totalInvoiced) * 100,
-      avgCollectionDays: row.avgDays ? toNum(row.avgDays) : 0,
-      latestRevenueMonth: row.latestRevenueMonth ?? null,
-      latestInvoiceDate: row.latestInvoiceDate ?? null,
+      totalExpectedRevenue: a.workOrder,
+      remainingPO: Math.max(a.workOrder - a.revenue, 0),
+      totalWorkOrder: a.workOrder,
+      totalRevenue: a.revenue,
+      totalDeductible: a.deductible,
+      totalInvoiced: a.invoiced,
+      totalCollected: a.collected,
+      totalOutstanding: a.outstanding,
+      totalOverdue: a.overdue,
+      totalPenalties: a.penalties,
+      totalNetRevenue: a.netRevenue,
+      revenueAchievementPct: safeDiv(a.revenue, a.workOrder || 1) * 100,
+      collectionPct: safeDiv(a.collected, a.invoiced) * 100,
+      avgCollectionDays: a.daysCount > 0 ? a.totalDays / a.daysCount : 0,
+      latestRevenueMonth: a.latestRevenueMonth,
+      latestInvoiceDate: a.latestInvoiceDate,
     };
   });
 }

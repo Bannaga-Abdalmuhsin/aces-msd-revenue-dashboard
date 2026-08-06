@@ -632,7 +632,7 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
           {/* Date range */}
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] font-medium" style={{ color: C.navy }}>From</span>
-            <input type="month" value={dateFrom}
+            <input type="date" value={dateFrom}
                    onChange={e => { setDateFrom(e.target.value); if (e.target.value) { setSelectedYear(''); setSelectedMonth(''); } }}
                    max={dateTo || undefined}
                    className={ctrlCls}
@@ -640,7 +640,7 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] font-medium" style={{ color: C.navy }}>To</span>
-            <input type="month" value={dateTo}
+            <input type="date" value={dateTo}
                    onChange={e => { setDateTo(e.target.value); if (e.target.value) { setSelectedYear(''); setSelectedMonth(''); } }}
                    min={dateFrom || undefined}
                    className={ctrlCls}

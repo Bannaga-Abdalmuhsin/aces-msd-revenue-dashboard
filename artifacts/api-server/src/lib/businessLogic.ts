@@ -1,5 +1,68 @@
 import type { RevenueRecord } from "@workspace/db";
 
+/**
+ * Per-metric date filter helpers.
+ *
+ * When a From→To date range is active each metric is compared against its own
+ * date column using the appropriate granularity:
+ *   - revenue_month  → YYYY-MM prefix comparison (entire month is in or out)
+ *   - invoice_date   → full YYYY-MM-DD comparison (exact day precision)
+ *   - collected_date → full YYYY-MM-DD comparison (exact day precision)
+ *
+ * When no range is active (year/month dropdowns) all helpers fall back to the
+ * same YYYY-MM matching so SQL-level conditions still apply unmodified.
+ */
+export function makeMetricFilters(params: {
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  revenueYear?: number | null;
+  revenueMonth?: number | null;
+}) {
+  const { dateFrom, dateTo, revenueYear, revenueMonth } = params;
+  const usingRange = !!(dateFrom || dateTo);
+
+  // Revenue month stored as YYYY-MM-DD (first of month) → compare at YYYY-MM level
+  const inRangeMonth = (dateStr: string | null | undefined): boolean => {
+    if (!dateStr) return false;
+    const ym = dateStr.slice(0, 7);
+    const from = dateFrom ? dateFrom.slice(0, 7) : null;
+    const to   = dateTo   ? dateTo.slice(0, 7)   : null;
+    if (from && ym < from) return false;
+    if (to   && ym > to)   return false;
+    return true;
+  };
+
+  // Invoice / collected date stored as YYYY-MM-DD → compare at full day level
+  const inRangeDate = (dateStr: string | null | undefined): boolean => {
+    if (!dateStr) return false;
+    const d = dateStr.slice(0, 10);
+    if (dateFrom && d < dateFrom.slice(0, 10)) return false;
+    if (dateTo   && d > dateTo.slice(0, 10))   return false;
+    return true;
+  };
+
+  // Single year/month filter (used when no range is active)
+  const matchesYearMonth = (dateStr: string | null | undefined): boolean => {
+    if (!dateStr) return false;
+    if (revenueYear  && parseInt(dateStr.slice(0, 4)) !== revenueYear)  return false;
+    if (revenueMonth && parseInt(dateStr.slice(5, 7)) !== revenueMonth) return false;
+    return true;
+  };
+
+  return {
+    usingRange,
+    /** Revenue + Work Order → always gated on revenue_month (month-level) */
+    revenueOk: (revenueMonthCol: string | null | undefined) =>
+      usingRange ? inRangeMonth(revenueMonthCol) : matchesYearMonth(revenueMonthCol),
+    /** Invoiced → invoice_date when range active (day-level); else revenue_month */
+    invoicedOk: (revenueMonthCol: string | null | undefined, invoiceDateCol: string | null | undefined) =>
+      usingRange ? inRangeDate(invoiceDateCol) : matchesYearMonth(revenueMonthCol),
+    /** Collected → collected_date when range active (day-level); else revenue_month */
+    collectedOk: (revenueMonthCol: string | null | undefined, collectedDateCol: string | null | undefined) =>
+      usingRange ? inRangeDate(collectedDateCol) : matchesYearMonth(revenueMonthCol),
+  };
+}
+
 export function toNum(v: string | number | null | undefined): number {
   if (v == null) return 0;
   return parseFloat(String(v)) || 0;
