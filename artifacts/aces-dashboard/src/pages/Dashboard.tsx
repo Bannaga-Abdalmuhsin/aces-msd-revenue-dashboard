@@ -663,9 +663,9 @@ export default function Dashboard() {
           />
           <KpiCard
             label="Uninvoiced"
-            value={summaryLoading ? '…' : fmtSAR((summary?.totalInvoiced ?? 0) - (summary?.totalRevenue ?? 0))}
-            sub="Invoiced minus Revenue"
-            valueColor={((summary?.totalInvoiced ?? 0) - (summary?.totalRevenue ?? 0)) > 0 ? C.red : C.slate}
+            value={summaryLoading ? '…' : fmtSAR((summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0))}
+            sub="Revenue minus Invoiced"
+            valueColor={((summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0)) > 0 ? C.red : C.slate}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.red} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           />
           <KpiCard
