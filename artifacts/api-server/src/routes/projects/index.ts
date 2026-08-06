@@ -29,8 +29,10 @@ async function buildProjectSummaries(filterProjectId?: number) {
       status: projectsTable.status,
       contractStart: projectsTable.contractStart,
       contractEnd: projectsTable.contractEnd,
-      poValue: projectsTable.poValue,
-      expectedMonthlyRevenue: projectsTable.expectedMonthlyRevenue,
+      // poValue / expectedMonthlyRevenue columns kept for user-editable overrides
+      // but we derive actuals from revenue records (workOrder)
+      poValueOverride: projectsTable.poValue,
+      expectedMonthlyRevenueOverride: projectsTable.expectedMonthlyRevenue,
       totalWorkOrder: sql<string>`COALESCE(SUM(${revenueRecordsTable.workOrder}::numeric), 0)`,
       totalRevenue: sql<string>`COALESCE(SUM(${revenueRecordsTable.revenue}::numeric), 0)`,
       totalDeductible: sql<string>`COALESCE(SUM(${revenueRecordsTable.deductible}::numeric), 0)`,
@@ -73,22 +75,12 @@ async function buildProjectSummaries(filterProjectId?: number) {
     const totalRevenue = toNum(row.totalRevenue);
     const totalInvoiced = toNum(row.totalInvoiced);
     const totalCollected = toNum(row.totalCollected);
-    const poValue = toNum(row.poValue);
-    const expectedMonthlyRevenue = toNum(row.expectedMonthlyRevenue);
-
-    // Compute total expected revenue (all time up to today)
-    let totalExpectedRevenue = 0;
-    if (row.contractStart && expectedMonthlyRevenue > 0) {
-      const tdy = new Date();
-      const startDate = new Date(row.contractStart);
-      const endDate = row.contractEnd ? new Date(row.contractEnd) : new Date("2099-12-31");
-      let d = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-      const cap = endDate < tdy ? endDate : tdy;
-      while (d <= cap) {
-        totalExpectedRevenue += expectedMonthlyRevenue;
-        d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-      }
-    }
+    // poValue = total work order from revenue records (all-time contracted amount)
+    const poValue = toNum(row.totalWorkOrder);
+    // totalExpectedRevenue = same as poValue (all work orders = expected revenue to date)
+    const totalExpectedRevenue = poValue;
+    // expectedMonthlyRevenue = keep user-editable override if set, else not shown
+    const expectedMonthlyRevenue = toNum(row.expectedMonthlyRevenueOverride ?? '0');
 
     const recs = recordsByProject.get(row.id) ?? [];
     let totalOutstanding = 0, totalOverdue = 0;

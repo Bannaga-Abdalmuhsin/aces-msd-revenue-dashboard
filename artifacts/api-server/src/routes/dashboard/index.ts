@@ -22,86 +22,6 @@ import {
 
 const router: IRouter = Router();
 
-type ProjectBaseline = {
-  id: number;
-  name: string;
-  contractStart: string | null;
-  contractEnd: string | null;
-  expectedMonthlyRevenue: string;
-  poValue: string;
-};
-
-/** Load all project baselines for expected-revenue calculations */
-async function loadBaselines(): Promise<ProjectBaseline[]> {
-  return db.select({
-    id: projectsTable.id,
-    name: projectsTable.name,
-    contractStart: projectsTable.contractStart,
-    contractEnd: projectsTable.contractEnd,
-    expectedMonthlyRevenue: projectsTable.expectedMonthlyRevenue,
-    poValue: projectsTable.poValue,
-  }).from(projectsTable);
-}
-
-/** Compute expected revenue for a given period based on project baselines */
-function computeExpectedRevenue(
-  baselines: ProjectBaseline[],
-  filterYear?: number | null,
-  filterMonth?: number | null,
-  filterProjectName?: string | null,
-): number {
-  const today = new Date();
-  let total = 0;
-
-  for (const p of baselines) {
-    if (filterProjectName && !p.name.toLowerCase().includes(filterProjectName.toLowerCase())) continue;
-    if (!p.contractStart) continue;
-    const monthlyRev = toNum(p.expectedMonthlyRevenue);
-    if (monthlyRev === 0) continue;
-
-    const startDate = new Date(p.contractStart);
-    const endDate = p.contractEnd ? new Date(p.contractEnd) : new Date("2099-12-31");
-
-    if (filterYear && filterMonth) {
-      const mStart = new Date(filterYear, filterMonth - 1, 1);
-      const mEnd = new Date(filterYear, filterMonth, 0);
-      if (startDate <= mEnd && endDate >= mStart) total += monthlyRev;
-    } else if (filterYear) {
-      for (let mo = 0; mo < 12; mo++) {
-        const mStart = new Date(filterYear, mo, 1);
-        const mEnd = new Date(filterYear, mo + 1, 0);
-        if (startDate <= mEnd && endDate >= mStart && mStart <= today) total += monthlyRev;
-      }
-    } else {
-      // All time up to today
-      let d = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-      const cap = endDate < today ? endDate : today;
-      while (d <= cap) {
-        total += monthlyRev;
-        d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-      }
-    }
-  }
-  return total;
-}
-
-/** Expected revenue for a specific month string "YYYY-MM" */
-function expectedRevForMonth(baselines: ProjectBaseline[], monthStr: string): number {
-  const [yr, mo] = monthStr.split("-").map(Number);
-  const mStart = new Date(yr, mo - 1, 1);
-  const mEnd = new Date(yr, mo, 0);
-  let total = 0;
-  for (const p of baselines) {
-    if (!p.contractStart) continue;
-    const startDate = new Date(p.contractStart);
-    const endDate = p.contractEnd ? new Date(p.contractEnd) : new Date("2099-12-31");
-    if (startDate <= mEnd && endDate >= mStart) {
-      total += toNum(p.expectedMonthlyRevenue);
-    }
-  }
-  return total;
-}
-
 function buildBaseConditions(params: {
   project?: string | null;
   revenueYear?: number | null;
@@ -117,13 +37,12 @@ function buildBaseConditions(params: {
   if (params.revenueMonth) {
     conditions.push(sql`EXTRACT(MONTH FROM ${revenueRecordsTable.revenueMonth}::date) = ${params.revenueMonth}`);
   }
-  // dateFrom / dateTo override year/month when provided (YYYY-MM format)
+  // dateFrom / dateTo (YYYY-MM format) override year/month when provided
   if (params.dateFrom) {
     const from = `${params.dateFrom}-01`;
     conditions.push(sql`${revenueRecordsTable.revenueMonth}::date >= ${from}::date`);
   }
   if (params.dateTo) {
-    // last day of the given month
     const to = `${params.dateTo}-01`;
     conditions.push(sql`${revenueRecordsTable.revenueMonth}::date <= (DATE_TRUNC('month', ${to}::date) + INTERVAL '1 month - 1 day')::date`);
   }
@@ -136,11 +55,17 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const q = parsed.data;
   const conditions = buildBaseConditions(q as Parameters<typeof buildBaseConditions>[0]);
+
+  // poValue = total work order for filtered project across ALL time (no date filter)
+  const poConditions = q.project ? [like(revenueRecordsTable.projectName, `%${q.project}%`)] : [];
+
   const today = new Date();
 
-  const [records, baselines, lastUpdate] = await Promise.all([
+  const [records, poResult, lastUpdate] = await Promise.all([
     db.select().from(revenueRecordsTable).where(conditions.length ? and(...conditions) : undefined),
-    loadBaselines(),
+    db.select({
+      totalPoValue: sql<string>`COALESCE(SUM(${revenueRecordsTable.workOrder}::numeric), 0)`,
+    }).from(revenueRecordsTable).where(poConditions.length ? and(...poConditions) : undefined),
     db.select({ maxDate: sql<string | null>`MAX(${revenueRecordsTable.updatedAt})` }).from(revenueRecordsTable),
   ]);
 
@@ -164,16 +89,10 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     if (r.days != null && collected > 0) { totalDays += r.days; daysCount++; }
   }
 
-  const totalPoValue = baselines
-    .filter(p => !q.project || p.name.toLowerCase().includes((q.project as string).toLowerCase()))
-    .reduce((s, p) => s + toNum(p.poValue), 0);
-
-  const totalExpectedRevenue = computeExpectedRevenue(
-    baselines,
-    q.revenueYear as number | null,
-    q.revenueMonth as number | null,
-    q.project as string | null,
-  );
+  // totalExpectedRevenue = workOrder sum for the filtered period
+  const totalExpectedRevenue = totalWorkOrder;
+  // totalPoValue = workOrder sum all time (or for the filtered project)
+  const totalPoValue = toNum(poResult[0]?.totalPoValue ?? '0');
 
   res.json({
     totalWorkOrder,
@@ -202,25 +121,18 @@ router.get("/dashboard/monthly", async (req, res): Promise<void> => {
   const q = parsed.data;
   const conditions = buildBaseConditions(q as Parameters<typeof buildBaseConditions>[0]);
 
-  const [rows, baselines] = await Promise.all([
-    db.select({
-      month: sql<string>`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`,
-      workOrder: sql<string>`SUM(${revenueRecordsTable.workOrder}::numeric)`,
-      revenue: sql<string>`SUM(${revenueRecordsTable.revenue}::numeric)`,
-      invoiced: sql<string>`SUM(${revenueRecordsTable.invoiced}::numeric)`,
-      collected: sql<string>`SUM(${revenueRecordsTable.collected}::numeric)`,
-      netRevenue: sql<string>`SUM(${revenueRecordsTable.netRevenue}::numeric)`,
-    })
-    .from(revenueRecordsTable)
-    .where(conditions.length ? and(...conditions) : undefined)
-    .groupBy(sql`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`)
-    .orderBy(sql`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`),
-    loadBaselines(),
-  ]);
-
-  const filteredBaselines = q.project
-    ? baselines.filter(p => p.name.toLowerCase().includes((q.project as string).toLowerCase()))
-    : baselines;
+  const rows = await db.select({
+    month: sql<string>`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`,
+    workOrder: sql<string>`SUM(${revenueRecordsTable.workOrder}::numeric)`,
+    revenue: sql<string>`SUM(${revenueRecordsTable.revenue}::numeric)`,
+    invoiced: sql<string>`SUM(${revenueRecordsTable.invoiced}::numeric)`,
+    collected: sql<string>`SUM(${revenueRecordsTable.collected}::numeric)`,
+    netRevenue: sql<string>`SUM(${revenueRecordsTable.netRevenue}::numeric)`,
+  })
+  .from(revenueRecordsTable)
+  .where(conditions.length ? and(...conditions) : undefined)
+  .groupBy(sql`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`)
+  .orderBy(sql`TO_CHAR(${revenueRecordsTable.revenueMonth}::date, 'YYYY-MM')`);
 
   res.json(rows.map((r) => ({
     month: r.month,
@@ -229,7 +141,8 @@ router.get("/dashboard/monthly", async (req, res): Promise<void> => {
     invoiced: toNum(r.invoiced),
     collected: toNum(r.collected),
     netRevenue: toNum(r.netRevenue),
-    expectedRevenue: expectedRevForMonth(filteredBaselines, r.month),
+    // expectedRevenue = work order value for that month (from Excel data)
+    expectedRevenue: toNum(r.workOrder),
   })));
 });
 
@@ -238,13 +151,22 @@ router.get("/dashboard/project-performance", async (req, res): Promise<void> => 
   const parsed = GetProjectPerformanceQueryParams.safeParse(req.query);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const q = parsed.data;
-  const conditions = [];
-  if (q.revenueYear) conditions.push(sql`EXTRACT(YEAR FROM ${revenueRecordsTable.revenueMonth}::date) = ${q.revenueYear}`);
+  const conditions = buildBaseConditions(q as Parameters<typeof buildBaseConditions>[0]);
 
-  const [records, baselines] = await Promise.all([
+  // Also need all-time workOrder per project for poValue (no date filter)
+  const projectConditions = q.project ? [like(revenueRecordsTable.projectName, `%${q.project}%`)] : [];
+
+  const [records, allTimeWorkOrders] = await Promise.all([
     db.select().from(revenueRecordsTable).where(conditions.length ? and(...conditions) : undefined),
-    loadBaselines(),
+    db.select({
+      projectName: revenueRecordsTable.projectName,
+      totalWorkOrder: sql<string>`SUM(${revenueRecordsTable.workOrder}::numeric)`,
+    }).from(revenueRecordsTable)
+      .where(projectConditions.length ? and(...projectConditions) : undefined)
+      .groupBy(revenueRecordsTable.projectName),
   ]);
+
+  const allTimeWOMap = new Map(allTimeWorkOrders.map(r => [r.projectName, toNum(r.totalWorkOrder)]));
 
   const projectMap = new Map<string, { workOrder: number; revenue: number; invoiced: number; collected: number }>();
   for (const r of records) {
@@ -257,23 +179,19 @@ router.get("/dashboard/project-performance", async (req, res): Promise<void> => 
     p.collected += toNum(r.collected);
   }
 
-  const baselineMap = new Map(baselines.map(b => [b.name, b]));
-
   res.json(Array.from(projectMap.entries()).map(([name, vals]) => {
-    const bl = baselineMap.get(name);
-    const expectedRevenue = bl
-      ? computeExpectedRevenue([bl], q.revenueYear as number | null, null, null)
-      : vals.workOrder;
+    const expectedRevenue = vals.workOrder; // work order for the period = expected
+    const poValue = allTimeWOMap.get(name) ?? vals.workOrder; // all-time work order = total PO
     return {
       projectName: name,
       workOrder: vals.workOrder,
       revenue: vals.revenue,
-      revenueAchievementPct: safeDiv(vals.revenue, expectedRevenue || vals.workOrder) * 100,
+      revenueAchievementPct: safeDiv(vals.revenue, expectedRevenue || 1) * 100,
       invoiced: vals.invoiced,
       collected: vals.collected,
       outstanding: computeOutstanding(vals.invoiced, vals.collected),
       expectedRevenue,
-      poValue: bl ? toNum(bl.poValue) : 0,
+      poValue,
     };
   }));
 });

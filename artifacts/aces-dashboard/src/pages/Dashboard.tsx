@@ -530,16 +530,16 @@ export default function Dashboard() {
         {/* ── PRIMARY KPIs ─────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
           <KpiCard
-            label="Total PO Value"
+            label="Total Work Order"
             value={summaryLoading ? '…' : fmtSAR(summary?.totalPoValue ?? 0)}
-            sub="Portfolio commitment"
+            sub="Total contracted (all time)"
             accent={C.navy}
             accentBg="#EDF2F7"
           />
           <KpiCard
             label="Expected Revenue"
             value={summaryLoading ? '…' : fmtSAR(summary?.totalExpectedRevenue ?? 0)}
-            sub="Based on baselines"
+            sub="Work order for period"
             accent="#6B7280"
             accentBg={C.greyL}
           />
