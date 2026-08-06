@@ -30,10 +30,10 @@ const C = {
 };
 
 // ── Formatters ───────────────────────────────────────────────────────
-/** Full SAR value with 4 decimal places – no K / M / B abbreviations */
+/** Full SAR value with 2 decimal places – no K / M / B abbreviations */
 function fmtSAR(n: number): string {
-  if (!isFinite(n)) return '﷼ 0.0000';
-  return `﷼ ${n.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
+  if (!isFinite(n)) return '﷼ 0.00';
+  return `﷼ ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 /** Compact numeric for chart axes only (no SAR prefix, 0 decimals) */
 function fmtAxis(n: number): string {
@@ -689,7 +689,7 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
             value={summaryLoading ? '…' : fmtSAR(summary?.totalNetRevenue ?? 0)}
             sub="After penalties & deductions"
             valueColor={(summary?.totalNetRevenue ?? 0) >= 0 ? C.navy : C.red}
-            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.navy} viewBox="0 0 24 24" strokeWidth={2}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>}
+            icon={<span className="text-sm font-bold leading-none" style={{ color: C.navy }}>﷼</span>}
           />
         </div>
 
