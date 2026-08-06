@@ -1,158 +1,69 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-card-border: hsl(var(--card-border));
-
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-popover-border: hsl(var(--popover-border));
-
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-primary-border: var(--primary-border);
-
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-secondary-border: var(--secondary-border);
-
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-muted-border: var(--muted-border);
-
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-accent-border: var(--accent-border);
-
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-destructive-border: var(--destructive-border);
-
-  --color-chart-1: hsl(var(--chart-1));
-  --color-chart-2: hsl(var(--chart-2));
-  --color-chart-3: hsl(var(--chart-3));
-  --color-chart-4: hsl(var(--chart-4));
-  --color-chart-5: hsl(var(--chart-5));
-
-  --font-sans: var(--app-font-sans);
-  --font-mono: var(--app-font-mono);
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
-
-/* ACES Corporate Theme — Black/Red/White brand identity */
+/* ── ACES Official Brand Colors (extracted from logo asset) ─────────── */
 :root {
-  --opaque-button-border-intensity: -8;
-
-  /* Page */
-  --background: 220 18% 96%;        /* #F2F4F8 light grey */
-  --foreground: 215 40% 12%;        /* #0D1A2E dark navy text */
-
-  /* Cards */
-  --card: 0 0% 100%;
-  --card-foreground: 215 40% 12%;
-  --card-border: 214 16% 90%;
-
-  /* Border / Input */
-  --border: 214 16% 88%;
-  --input: 214 16% 88%;
-  --ring: 356 72% 46%;
-
-  /* Primary = ACES Red (from logo) */
-  --primary: 356 72% 46%;           /* #CC1F26 */
-  --primary-foreground: 0 0% 100%;
-
-  /* Secondary */
-  --secondary: 220 14% 93%;
-  --secondary-foreground: 215 36% 20%;
-
-  /* Muted */
-  --muted: 220 14% 93%;
-  --muted-foreground: 215 14% 46%;
-
-  /* Accent = ACES Blue (corporate data color) */
-  --accent: 212 66% 32%;            /* #1A4E8A */
-  --accent-foreground: 0 0% 100%;
-
-  /* Destructive = red */
-  --destructive: 0 78% 52%;
-  --destructive-foreground: 0 0% 100%;
-
-  /* Popovers */
-  --popover: 0 0% 100%;
-  --popover-foreground: 215 40% 12%;
-  --popover-border: 214 16% 88%;
-
-  /* Charts — ACES brand data palette */
-  --chart-1: 212 66% 32%;           /* ACES Blue — actual revenue */
-  --chart-2: 142 70% 35%;           /* Green — collected */
-  --chart-3: 212 60% 68%;           /* Light blue — expected */
-  --chart-4: 35 90% 52%;            /* Amber — outstanding/gaps */
-  --chart-5: 215 14% 64%;           /* Grey — neutral/completed */
-
-  --app-font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --app-font-mono: ui-monospace, monospace;
-  --radius: 0.5rem;
-
-  --shadow-sm: 0px 1px 3px 0px hsl(215 40% 12% / 0.06), 0px 1px 2px -1px hsl(215 40% 12% / 0.04);
-  --shadow:    0px 1px 4px 0px hsl(215 40% 12% / 0.08), 0px 2px 4px -1px hsl(215 40% 12% / 0.06);
-  --shadow-md: 0px 4px 8px -1px hsl(215 40% 12% / 0.08), 0px 2px 4px -2px hsl(215 40% 12% / 0.06);
-  --shadow-lg: 0px 8px 16px -3px hsl(215 40% 12% / 0.08), 0px 4px 6px -4px hsl(215 40% 12% / 0.05);
-
-  --primary-border: hsl(var(--primary));
-  --secondary-border: hsl(var(--secondary));
-  --muted-border: hsl(var(--muted));
-  --accent-border: hsl(var(--accent));
-  --destructive-border: hsl(var(--destructive));
+  --aces-navy:       #122E64;   /* extracted from ACES brand stripe   */
+  --aces-navy-mid:   #1E4080;   /* secondary navy for chart series    */
+  --aces-red:        #EF1E34;   /* extracted from ACES logo – 22 835px */
+  --aces-red-dark:   #9C1C2A;   /* deeper maroon for hover / accent   */
+  --aces-charcoal:   #2F2E2E;   /* primary dark text (from logo)      */
+  --aces-slate:      #706F6F;   /* secondary / muted text (from logo) */
+  --aces-light:      #F4F6F8;   /* page background                    */
+  --aces-border:     #DFE3E8;   /* card & input borders               */
+  --aces-white:      #FFFFFF;   /* card surfaces                      */
+  --aces-navy-tint:  #E8EDF5;   /* very light navy tint               */
+  --success:         #168653;   /* Collected / positive               */
+  --success-light:   #DCFCE7;
+  --warning:         #C87800;   /* Outstanding / attention            */
+  --warning-light:   #FEF3C7;
+  --danger:          var(--aces-red);
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+/* ── Reset / Base ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
-html, body {
+html, body, #root {
   margin: 0;
   padding: 0;
-  font-family: var(--app-font-sans);
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  background: var(--aces-light);
+  color: var(--aces-charcoal);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ACES Header bar */
+/* ── ACES Header ─────────────────────────────────────────────────────── */
 .aces-header {
-  background: #0D1928;
-  color: #fff;
+  background: var(--aces-navy);
+  position: relative;
+}
+/* Thin ACES-red brand line directly below the navy header */
+.aces-header::after {
+  content: '';
+  display: block;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--aces-red);
 }
 
-/* ACES brand colors as utility classes */
-.text-aces-red    { color: #CC1F26; }
-.bg-aces-red      { background-color: #CC1F26; }
-.text-aces-blue   { color: #1A4E8A; }
-.bg-aces-blue     { background-color: #1A4E8A; }
-.text-aces-navy   { color: #0D1928; }
-.bg-aces-navy     { background-color: #0D1928; }
-.text-aces-green  { color: #16A34A; }
-.bg-aces-green    { background-color: #16A34A; }
-.text-aces-amber  { color: #D97706; }
-.bg-aces-amber    { background-color: #D97706; }
+/* ── Filter focus ring override ──────────────────────────────────────── */
+.filter-control:focus {
+  outline: 2px solid var(--aces-red);
+  outline-offset: 1px;
+}
+.filter-control:focus-within {
+  border-color: var(--aces-red) !important;
+}
 
-/* Status colors */
-.status-active    { color: #1A4E8A; background: #EAF2FD; }
-.status-completed { color: #6B7280; background: #F3F4F6; }
-.status-upcoming  { color: #0369A1; background: #E0F2FE; }
+/* ── Recharts axis label legibility ─────────────────────────────────── */
+.recharts-cartesian-axis-tick-value {
+  font-size: 10px;
+  fill: var(--aces-slate);
+}
+.recharts-legend-item-text {
+  font-size: 11px !important;
+  color: var(--aces-charcoal) !important;
+}

@@ -1,0 +1,351 @@
+REDESIGN THE EXISTING DASHBOARD TO MATCH THE OFFICIAL ACES CORPORATE IDENTITY
+
+The current dashboard uses a generic blue, green, and orange financial-dashboard palette. It does not sufficiently reflect the official ACES visual identity.
+
+Update the existing dashboard without changing, deleting, merging, deduplicating, or recalculating the imported 177 CSV records.
+
+ACES Logo
+
+Use the official ACES logo already uploaded to the project.
+
+Requirements:
+
+Increase the logo size because it is currently too small.
+Position it prominently in the top-left corner.
+Preserve its original aspect ratio and colors.
+Use the correct high-resolution or transparent-background version.
+Do not redraw, recolor, crop, distort, or add effects.
+Give the logo sufficient clear space.
+Align it vertically with the department and dashboard title.
+Extract the Official Brand Colors
+
+Do not use guessed generic corporate colors.
+
+Extract the actual colors directly from the official ACES logo and create global CSS variables such as:
+
+:root {
+  --aces-navy: /* extracted official dark ACES color */;
+  --aces-red: /* extracted official ACES red */;
+  --aces-red-dark: /* darker accessible red */;
+  --aces-slate: /* extracted neutral grey */;
+  --aces-light-grey: #f4f6f8;
+  --aces-border: #dfe3e8;
+  --aces-white: #ffffff;
+  --aces-text: #172033;
+  --aces-muted: #667085;
+  --success: #168653;
+  --warning: #c87800;
+  --danger: var(--aces-red);
+}
+
+Sample the precise navy, red, and grey colors from the actual logo asset. Use those extracted values consistently throughout the application.
+
+Do not keep the current generic royal-blue palette.
+
+Brand Hierarchy
+
+Apply the brand colors with this hierarchy:
+
+ACES navy: Main header, primary headings, Work Order, and primary financial text.
+ACES red: Primary accent, active states, buttons, selected filters, section markers, and important highlights.
+ACES slate/grey: Secondary series, borders, captions, and inactive elements.
+White/light grey: Dashboard background and cards.
+Green: Collected and positive financial performance only.
+Amber: Outstanding or attention items only.
+Red: Penalties, critical gaps, overdue values, and negative conditions.
+
+ACES red must become a clearly visible part of the dashboard identity, not only a tiny decorative line.
+
+Do not color every financial category independently. The dashboard should feel like one coordinated ACES-branded system.
+
+Header Redesign
+
+Keep the navy header but improve its branding.
+
+Header structure:
+
+Larger official ACES logo on the left.
+Thin vertical ACES-red divider.
+“MANAGED SERVICES DEPARTMENT” in small uppercase grey or white text.
+“Project Revenue Dashboard” in larger bold white text.
+Reporting period and last updated date on the right.
+“Update Data” button using official ACES red.
+
+Improve spacing and alignment.
+
+Do not make the header excessively tall.
+
+ACES Red Brand Line
+
+Add a thin ACES-red line directly below the navy header.
+
+Use the red line as a consistent brand separator across the full dashboard width.
+
+This will visually connect the interface to the red element in the ACES logo.
+
+Filter Area
+
+Redesign the filter row:
+
+Use white filter controls with subtle grey borders.
+Use navy labels.
+Use ACES red for focus rings, active values, selected states, and reset actions.
+Replace the disabled-looking grey controls with clear, accessible styling.
+Maintain Project, Year, Month, From, and To filters only if they are functional.
+Keep the row compact and aligned.
+Add a small red “Reset Filters” text button.
+Remove Incorrect Expected Revenue
+
+The current screenshot incorrectly displays:
+
+“Expected Revenue”
+“Expected” chart series
+
+Remove both completely.
+
+There is no project-baseline or expected-revenue table.
+
+The CSV is the only data source.
+
+Use only:
+
+Work Order
+Revenue
+Deductible
+Invoiced
+Collected
+Penalties
+Net Revenue
+Outstanding
+
+Do not recreate Expected Revenue from Work Order.
+
+Do not duplicate Work Order under another label.
+
+Correct KPI Cards
+
+Replace the current primary cards with:
+
+Work Order
+Revenue
+Deductible
+Invoiced
+Collected
+Outstanding
+Penalties
+Net Revenue
+
+Recommended layout:
+
+Two rows of four cards on medium screens.
+One row of eight cards on sufficiently wide screens.
+Four rows of two cards on mobile.
+
+KPI card styling:
+
+White background.
+Subtle grey border.
+Thin ACES-red top border or left accent.
+Navy label.
+Dark financial value.
+Minimal ACES-themed icon.
+Green only for Collected and positive Net Revenue.
+Amber only for Outstanding.
+Red only for Deductible or Penalties when attention is required.
+No unrelated blue, green, and orange borders on every card.
+Display Full Financial Values
+
+The current dashboard incorrectly uses abbreviations such as:
+
+SAR 212.85M
+SAR 208.82M
+SAR 182.28M
+
+Remove all K, M, and B abbreviations.
+
+Display full values:
+
+SAR 212,850,000.0000
+SAR 208,820,000.0000
+SAR 182,280,000.0000
+
+Requirements:
+
+Use commas as thousands separators.
+Show four decimal places.
+Do not round, truncate, or shorten the values.
+Use responsive typography so full values fit within the cards.
+Allow values to wrap only if absolutely necessary.
+Provide exact values in tooltips as an additional safeguard.
+
+Apply full-value formatting to:
+
+KPI cards
+Charts
+Axes
+Data labels
+Tooltips
+Tables
+Exported files
+Section Headers
+
+Keep the current red vertical marker but strengthen the ACES style.
+
+Each chart panel should have:
+
+Thin ACES-red vertical marker.
+Navy section title.
+White card background.
+Subtle grey border.
+Minimal shadow.
+Consistent title height and spacing.
+
+Avoid black section titles that do not visually connect with the brand.
+
+Chart Palette
+
+Use one coordinated ACES palette:
+
+Monthly Financial Performance:
+
+Work Order: ACES slate grey
+Revenue: ACES navy
+Invoiced: Medium ACES red or dark red
+Collected: Green
+Net Revenue: Light or secondary ACES navy
+
+Do not include Expected Revenue.
+
+Project Financial Performance:
+
+Work Order: ACES slate grey
+Revenue: ACES navy
+Invoiced: ACES red
+Collected: Green
+Net Revenue: Secondary navy
+
+Collection Overview:
+
+Collected: Green
+Outstanding: Amber
+Penalties or critical gap: ACES red
+
+Revenue Achievement:
+
+Use ACES navy for normal achievement bars.
+Use green only when achievement meets the defined target.
+Use amber for moderate underperformance.
+Use ACES red for critical underperformance.
+Do not display every achievement bar as green.
+Chart Corrections
+
+The current line chart contains an “Expected” series. Remove it.
+
+The revised Monthly Financial Performance chart must show only:
+
+Work Order
+Revenue
+Invoiced
+Collected
+Net Revenue
+
+Calculate every series by summing all applicable CSV records.
+
+Do not consolidate repeated STC COW rows before summing.
+
+Do not deduplicate project/month records.
+
+Collection Donut
+
+Keep the collection donut, but apply ACES styling:
+
+Use green for Collected.
+Use amber for Outstanding.
+Use ACES red for overdue or critical amounts only if they exist directly in the data.
+Use navy for the central percentage label.
+Use restrained labels below the chart.
+Do not use three unrelated bright colors.
+Typography
+
+Use a clean corporate font such as:
+
+Inter
+IBM Plex Sans
+Source Sans 3
+
+Typography hierarchy:
+
+Dashboard title: Bold
+KPI values: Bold
+KPI labels: Medium uppercase
+Section titles: Semibold
+Captions: Regular
+
+Use navy or dark charcoal for primary text and slate grey for secondary text.
+
+Dashboard Background
+
+Replace the current slightly blue-grey background with a neutral ACES corporate background:
+
+Main background: Very light neutral grey.
+Cards: Pure white.
+Header: ACES navy.
+Borders: Light neutral grey.
+Brand accents: ACES red.
+
+Avoid a cold generic software-dashboard appearance.
+
+Responsive Layout
+
+Maintain the dashboard’s wide executive structure while improving responsiveness.
+
+Breakpoints:
+
+4K and large desktop: Full-width dashboard with eight KPI cards where readable.
+Full HD desktop: Six or four cards per row depending on available width.
+Laptop: Four cards per row.
+Tablet: Two cards per row.
+Mobile: One or two cards per row with charts stacked vertically.
+
+Charts must resize without:
+
+Clipped labels
+Overlapping legends
+Horizontal page overflow
+Cut-off project names
+Unreadable axis values
+Preserve the CSV Data Exactly
+
+Do not modify the data logic during the redesign.
+
+Requirements:
+
+Keep all 177 CSV records.
+Preserve repeated STC COW records.
+Do not merge project/month entries.
+Do not deduplicate records.
+Do not replace source records with summaries.
+Continue using decimal-safe storage.
+Preserve four-decimal financial values.
+Keep all filters and charts based only on the CSV.
+Final Visual Quality Check
+
+Before completing the redesign, verify:
+
+ACES logo is large enough and clearly visible.
+Official ACES colors are extracted from the real logo.
+ACES red is visibly integrated throughout the design.
+Generic royal blue is removed.
+Expected Revenue is removed.
+Expected chart series is removed.
+No K, M, or B abbreviations remain.
+Financial values display four decimals.
+Charts use a consistent ACES palette.
+All 177 records remain present.
+STC COW records remain separate.
+Filters still work.
+Charts still respond to filters.
+Mobile and desktop layouts remain readable.
+No console errors are generated.
+
+Implement these changes directly in the existing application. Do not return only a design description—update the dashboard and provide the working preview.
