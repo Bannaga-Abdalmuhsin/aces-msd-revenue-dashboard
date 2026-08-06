@@ -38,14 +38,15 @@ function buildBaseConditions(params: {
   if (params.revenueMonth) {
     conditions.push(sql`EXTRACT(MONTH FROM ${revenueRecordsTable.revenueMonth}::date) = ${params.revenueMonth}`);
   }
-  // dateFrom / dateTo (YYYY-MM format) override year/month when provided
+  // dateFrom / dateTo accept YYYY-MM-DD (full date) or YYYY-MM (month only)
+  // For revenue_month comparison we always work at month granularity.
   if (params.dateFrom) {
-    const from = `${params.dateFrom}-01`;
-    conditions.push(sql`${revenueRecordsTable.revenueMonth}::date >= ${from}::date`);
+    const from = params.dateFrom.length === 7 ? `${params.dateFrom}-01` : params.dateFrom.slice(0, 10);
+    conditions.push(sql`DATE_TRUNC('month', ${revenueRecordsTable.revenueMonth}::date) >= DATE_TRUNC('month', ${from}::date)`);
   }
   if (params.dateTo) {
-    const to = `${params.dateTo}-01`;
-    conditions.push(sql`${revenueRecordsTable.revenueMonth}::date <= (DATE_TRUNC('month', ${to}::date) + INTERVAL '1 month - 1 day')::date`);
+    const to = params.dateTo.length === 7 ? `${params.dateTo}-01` : params.dateTo.slice(0, 10);
+    conditions.push(sql`DATE_TRUNC('month', ${revenueRecordsTable.revenueMonth}::date) <= DATE_TRUNC('month', ${to}::date)`);
   }
   return conditions;
 }
