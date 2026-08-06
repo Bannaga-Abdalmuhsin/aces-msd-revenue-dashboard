@@ -141,7 +141,8 @@ export const ImportRecordsBody = zod.object({
   "netRevenue": zod.number().optional(),
   "isDemo": zod.boolean().optional()
 })),
-  "allowDuplicateInvoices": zod.boolean().optional()
+  "allowDuplicateInvoices": zod.boolean().optional(),
+  "clearFirst": zod.boolean().optional()
 })
 
 export const ImportRecordsResponse = zod.object({

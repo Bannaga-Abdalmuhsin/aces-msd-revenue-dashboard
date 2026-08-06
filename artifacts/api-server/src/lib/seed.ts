@@ -25,7 +25,7 @@ const PROJECT_META: Record<string, {
 // Used only when the DB is completely empty (e.g. after a wipe).
 const CSV_PATH = resolve(
   process.cwd(),
-  "../../attached_assets/ACES_MSD_Revenue_SQL_Ready_1786000968438.csv"
+  "../../attached_assets/ACES_MSD_Revenue_SQL_Ready_1786015620064.csv"
 );
 
 function str(v: string | undefined): string {

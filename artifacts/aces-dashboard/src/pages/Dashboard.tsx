@@ -146,8 +146,47 @@ function ChartTooltip({ active, payload, label }: any) {
 }
 
 // ── Update Data Modal ─────────────────────────────────────────────────
+// Map CSV snake_case column names → API camelCase field names
+const CSV_COL_MAP: Record<string, string> = {
+  project: 'projectName',
+  revenue_month: 'revenueMonth',
+  work_order: 'workOrder',
+  revenue: 'revenue',
+  deductible: 'deductible',
+  invoiced: 'invoiced',
+  invoice_date: 'invoiceDate',
+  invoice_no: 'invoiceNo',
+  due_date: 'dueDate',
+  collected: 'collected',
+  collected_date: 'collectedDate',
+  days: 'days',
+  penalties: 'penalties',
+  net_revenue: 'netRevenue',
+};
+const NUMERIC_FIELDS = new Set(['workOrder', 'revenue', 'deductible', 'invoiced', 'collected', 'days', 'penalties', 'netRevenue']);
+
+function parseCsvRecord(rawHeaders: string[], values: string[]): Record<string, unknown> {
+  const raw: Record<string, string> = {};
+  rawHeaders.forEach((h, i) => { raw[h] = (values[i] ?? '').trim().replace(/^"|"$/g, ''); });
+
+  const rec: Record<string, unknown> = {};
+  for (const [csvCol, apiField] of Object.entries(CSV_COL_MAP)) {
+    const v = raw[csvCol] ?? '';
+    if (NUMERIC_FIELDS.has(apiField)) {
+      const n = parseFloat(v);
+      rec[apiField] = isNaN(n) ? 0 : n;
+    } else if (v === '') {
+      rec[apiField] = null;
+    } else {
+      rec[apiField] = v;
+    }
+  }
+  return rec;
+}
+
 function UpdateDataModal({ onClose }: { onClose: () => void }) {
   const [file, setFile] = useState<File | null>(null);
+  const [replaceAll, setReplaceAll] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ imported: number; skipped: number; warnings: any[] } | null>(null);
   const { toast } = useToast();
@@ -159,17 +198,20 @@ function UpdateDataModal({ onClose }: { onClose: () => void }) {
     setLoading(true);
     try {
       const text = await file.text();
-      const lines = text.trim().split(/\r?\n/);
-      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+      const rawHeaders = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
       const records = lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-        return Object.fromEntries(headers.map((h, i) => [h, values[i] ?? '']));
+        const values = line.split(',');
+        return parseCsvRecord(rawHeaders, values);
       });
       const resp = await fetch(`${apiBase}/api/records/import`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ records }),
+        body: JSON.stringify({ records, allowDuplicateInvoices: true, clearFirst: replaceAll }),
       });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({}));
+        throw new Error(errBody.error ?? `HTTP ${resp.status}`);
+      }
       const data = await resp.json();
       setResult(data);
       toast({ title: `Imported ${data.imported} records` });
@@ -187,9 +229,17 @@ function UpdateDataModal({ onClose }: { onClose: () => void }) {
         </div>
         {!result ? (
           <>
-            <p className="text-sm mb-4" style={{ color: C.slate }}>
-              Upload a CSV file in ACES MSD format. All 177 existing records will be preserved.
+            <p className="text-sm mb-3" style={{ color: C.slate }}>
+              Upload a CSV file in ACES MSD format.
             </p>
+            <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
+              <input type="checkbox" checked={replaceAll} onChange={e => setReplaceAll(e.target.checked)}
+                     className="w-4 h-4 rounded" style={{ accentColor: C.red }} />
+              <span className="text-sm font-medium" style={{ color: C.charcoal }}>
+                Replace all existing data
+              </span>
+              <span className="text-xs" style={{ color: C.slate }}>(recommended for full refresh)</span>
+            </label>
             <label className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-8 cursor-pointer transition-colors"
                    style={{ borderColor: C.border }}
                    onMouseOver={e => (e.currentTarget.style.borderColor = C.red)}

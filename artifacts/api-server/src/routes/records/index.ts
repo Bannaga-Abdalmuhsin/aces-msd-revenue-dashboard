@@ -168,11 +168,16 @@ router.post("/records/import", async (req, res): Promise<void> => {
     res.status(400).json({ error: issues.slice(0, 5).join(' | ') });
     return;
   }
-  const { records, allowDuplicateInvoices } = parsed.data;
+  const { records, allowDuplicateInvoices, clearFirst } = parsed.data;
   const warnings: Array<{ row: number; field: string; message: string; severity: "warning" | "error" }> = [];
   const errors: string[] = [];
   let imported = 0;
   let skipped = 0;
+
+  if (clearFirst) {
+    await db.delete(revenueRecordsTable);
+    await logAudit("clear_all", "revenue_records", null, null, { reason: "clearFirst import" });
+  }
 
   const existingInvoices = await db
     .select({ invoiceNo: revenueRecordsTable.invoiceNo })
