@@ -161,7 +161,6 @@ router.delete("/records/demo/clear", async (_req, res): Promise<void> => {
 router.post("/records/import", async (req, res): Promise<void> => {
   const parsed = ImportRecordsBody.safeParse(req.body);
   if (!parsed.success) {
-    // Build a human-readable list of field validation errors
     const issues = parsed.error.errors.map((e) => {
       const field = e.path.length ? e.path.join('.') : 'body';
       return `${field}: ${e.message}`;
