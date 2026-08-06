@@ -184,6 +184,22 @@ paths:
       operationId: listProjects
       tags: [projects]
       summary: List all projects with aggregated stats
+      parameters:
+        - name: project
+          in: query
+          schema: { type: string }
+        - name: revenueYear
+          in: query
+          schema: { type: ["number", "null"] }
+        - name: revenueMonth
+          in: query
+          schema: { type: ["number", "null"] }
+        - name: dateFrom
+          in: query
+          schema: { type: string, description: "Start YYYY-MM" }
+        - name: dateTo
+          in: query
+          schema: { type: string, description: "End YYYY-MM" }
       responses:
         "200":
           description: Project list
@@ -331,6 +347,9 @@ paths:
       tags: [dashboard]
       summary: Get project performance data for charts
       parameters:
+        - name: project
+          in: query
+          schema: { type: string }
         - name: revenueYear
           in: query
           schema: { type: ["number", "null"] }

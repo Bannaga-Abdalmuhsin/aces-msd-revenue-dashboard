@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, and, like } from "drizzle-orm";
 import { db, projectsTable, revenueRecordsTable } from "@workspace/db";
 import {
   CreateProjectBody,
@@ -19,8 +19,44 @@ import { logAudit } from "../../lib/audit";
 
 const router: IRouter = Router();
 
-async function buildProjectSummaries(filterProjectId?: number) {
+interface ProjectFilter {
+  project?: string | null;
+  revenueYear?: number | null;
+  revenueMonth?: number | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+}
+
+async function buildProjectSummaries(filterProjectId?: number, filter?: ProjectFilter) {
   const today = new Date();
+
+  // Date/range conditions applied to the LEFT JOIN ON clause so that projects
+  // with no matching revenue records still appear with zero totals (not excluded).
+  const joinConds: ReturnType<typeof sql>[] = [];
+  if (filter?.revenueYear) {
+    joinConds.push(sql`EXTRACT(YEAR FROM ${revenueRecordsTable.revenueMonth}) = ${filter.revenueYear}`);
+  }
+  if (filter?.revenueMonth) {
+    joinConds.push(sql`EXTRACT(MONTH FROM ${revenueRecordsTable.revenueMonth}) = ${filter.revenueMonth}`);
+  }
+  if (filter?.dateFrom) {
+    const from = `${filter.dateFrom}-01`;
+    joinConds.push(sql`${revenueRecordsTable.revenueMonth} >= ${from}::date`);
+  }
+  if (filter?.dateTo) {
+    const to = `${filter.dateTo}-01`;
+    joinConds.push(sql`${revenueRecordsTable.revenueMonth} <= (DATE_TRUNC('month', ${to}::date) + INTERVAL '1 month - 1 day')::date`);
+  }
+
+  const joinCondition = and(
+    eq(revenueRecordsTable.projectId, projectsTable.id),
+    ...(joinConds as any[]),
+  );
+
+  // WHERE conditions: filter project rows by id or exact name
+  const whereParts = [];
+  if (filterProjectId != null) whereParts.push(eq(projectsTable.id, filterProjectId));
+  if (filter?.project) whereParts.push(eq(projectsTable.name, filter.project));
 
   const rows = await db
     .select({
@@ -29,24 +65,22 @@ async function buildProjectSummaries(filterProjectId?: number) {
       status: projectsTable.status,
       contractStart: projectsTable.contractStart,
       contractEnd: projectsTable.contractEnd,
-      // poValue / expectedMonthlyRevenue columns kept for user-editable overrides
-      // but we derive actuals from revenue records (workOrder)
       poValueOverride: projectsTable.poValue,
       expectedMonthlyRevenueOverride: projectsTable.expectedMonthlyRevenue,
-      totalWorkOrder: sql<string>`COALESCE(SUM(${revenueRecordsTable.workOrder}::numeric), 0)`,
-      totalRevenue: sql<string>`COALESCE(SUM(${revenueRecordsTable.revenue}::numeric), 0)`,
-      totalDeductible: sql<string>`COALESCE(SUM(${revenueRecordsTable.deductible}::numeric), 0)`,
-      totalInvoiced: sql<string>`COALESCE(SUM(${revenueRecordsTable.invoiced}::numeric), 0)`,
-      totalCollected: sql<string>`COALESCE(SUM(${revenueRecordsTable.collected}::numeric), 0)`,
-      totalPenalties: sql<string>`COALESCE(SUM(${revenueRecordsTable.penalties}::numeric), 0)`,
-      totalNetRevenue: sql<string>`COALESCE(SUM(${revenueRecordsTable.netRevenue}::numeric), 0)`,
+      totalWorkOrder: sql<string>`COALESCE(SUM(${revenueRecordsTable.workOrder}), 0)`,
+      totalRevenue: sql<string>`COALESCE(SUM(${revenueRecordsTable.revenue}), 0)`,
+      totalDeductible: sql<string>`COALESCE(SUM(${revenueRecordsTable.deductible}), 0)`,
+      totalInvoiced: sql<string>`COALESCE(SUM(${revenueRecordsTable.invoiced}), 0)`,
+      totalCollected: sql<string>`COALESCE(SUM(${revenueRecordsTable.collected}), 0)`,
+      totalPenalties: sql<string>`COALESCE(SUM(${revenueRecordsTable.penalties}), 0)`,
+      totalNetRevenue: sql<string>`COALESCE(SUM(${revenueRecordsTable.netRevenue}), 0)`,
       latestRevenueMonth: sql<string | null>`MAX(${revenueRecordsTable.revenueMonth})`,
       latestInvoiceDate: sql<string | null>`MAX(${revenueRecordsTable.invoiceDate})`,
-      avgDays: sql<string | null>`AVG(CASE WHEN ${revenueRecordsTable.days} IS NOT NULL AND ${revenueRecordsTable.collected}::numeric > 0 THEN ${revenueRecordsTable.days} END)`,
+      avgDays: sql<string | null>`AVG(CASE WHEN ${revenueRecordsTable.days} IS NOT NULL AND ${revenueRecordsTable.collected} > 0 THEN ${revenueRecordsTable.days} END)`,
     })
     .from(projectsTable)
-    .leftJoin(revenueRecordsTable, eq(revenueRecordsTable.projectId, projectsTable.id))
-    .where(filterProjectId != null ? eq(projectsTable.id, filterProjectId) : undefined)
+    .leftJoin(revenueRecordsTable, joinCondition)
+    .where(whereParts.length ? and(...whereParts) : undefined)
     .groupBy(
       projectsTable.id, projectsTable.name, projectsTable.status,
       projectsTable.contractStart, projectsTable.contractEnd,
@@ -54,13 +88,32 @@ async function buildProjectSummaries(filterProjectId?: number) {
     )
     .orderBy(projectsTable.name);
 
+  // For outstanding/overdue computation fetch filtered records individually
+  const recordsConds = [];
+  if (filterProjectId != null) recordsConds.push(eq(revenueRecordsTable.projectId, filterProjectId));
+  if (filter?.project) recordsConds.push(eq(revenueRecordsTable.projectName, filter.project));
+  if (filter?.revenueYear) {
+    recordsConds.push(sql`EXTRACT(YEAR FROM ${revenueRecordsTable.revenueMonth}) = ${filter.revenueYear}`);
+  }
+  if (filter?.revenueMonth) {
+    recordsConds.push(sql`EXTRACT(MONTH FROM ${revenueRecordsTable.revenueMonth}) = ${filter.revenueMonth}`);
+  }
+  if (filter?.dateFrom) {
+    const from = `${filter.dateFrom}-01`;
+    recordsConds.push(sql`${revenueRecordsTable.revenueMonth} >= ${from}::date`);
+  }
+  if (filter?.dateTo) {
+    const to = `${filter.dateTo}-01`;
+    recordsConds.push(sql`${revenueRecordsTable.revenueMonth} <= (DATE_TRUNC('month', ${to}::date) + INTERVAL '1 month - 1 day')::date`);
+  }
+
   const allRecords = await db.select({
     projectId: revenueRecordsTable.projectId,
     invoiced: revenueRecordsTable.invoiced,
     collected: revenueRecordsTable.collected,
     dueDate: revenueRecordsTable.dueDate,
   }).from(revenueRecordsTable)
-    .where(filterProjectId != null ? eq(revenueRecordsTable.projectId, filterProjectId) : undefined);
+    .where(recordsConds.length ? and(...recordsConds) : undefined);
 
   const recordsByProject = new Map<number, Array<{ invoiced: number; collected: number; dueDate: string | null }>>();
   for (const r of allRecords) {
@@ -118,8 +171,16 @@ async function buildProjectSummaries(filterProjectId?: number) {
 }
 
 // GET /projects
-router.get("/projects", async (_req, res): Promise<void> => {
-  const summaries = await buildProjectSummaries();
+router.get("/projects", async (req, res): Promise<void> => {
+  const q = req.query as Record<string, string>;
+  const filter: ProjectFilter = {
+    project: q.project || null,
+    revenueYear: q.revenueYear ? Number(q.revenueYear) : null,
+    revenueMonth: q.revenueMonth ? Number(q.revenueMonth) : null,
+    dateFrom: q.dateFrom || null,
+    dateTo: q.dateTo || null,
+  };
+  const summaries = await buildProjectSummaries(undefined, filter);
   res.json(summaries);
 });
 

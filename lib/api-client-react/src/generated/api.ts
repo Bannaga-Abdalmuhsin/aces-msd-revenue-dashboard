@@ -41,6 +41,7 @@ import type {
   InvoiceListResponse,
   ListAuditLogsParams,
   ListInvoicesParams,
+  ListProjectsParams,
   ListRecordsParams,
   MonthlyTrendPoint,
   PaymentStatusCount,
@@ -607,20 +608,27 @@ export const useDeleteRecord = <TError = ErrorType<void>,
       return useMutation(getDeleteRecordMutationOptions(options));
     }
 
-export const getListProjectsUrl = () => {
+export const getListProjectsUrl = (params?: ListProjectsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/projects`
+  return stringifiedParams.length > 0 ? `/api/projects?${stringifiedParams}` : `/api/projects`
 }
 
 /**
  * @summary List all projects with aggregated stats
  */
-export const listProjects = async ( options?: Parameters<typeof customFetch>[1]): Promise<ProjectSummary[]> => {
+export const listProjects = async (params?: ListProjectsParams, options?: Parameters<typeof customFetch>[1]): Promise<ProjectSummary[]> => {
 
-  return customFetch<ProjectSummary[]>(getListProjectsUrl(),
+  return customFetch<ProjectSummary[]>(getListProjectsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -633,23 +641,23 @@ export const listProjects = async ( options?: Parameters<typeof customFetch>[1])
 
 
 
-export const getListProjectsQueryKey = () => {
+export const getListProjectsQueryKey = (params?: ListProjectsParams,) => {
     return [
-    `/api/projects`
+    `/api/projects`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListProjectsQueryOptions = <TData = Awaited<ReturnType<typeof listProjects>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProjects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListProjectsQueryOptions = <TData = Awaited<ReturnType<typeof listProjects>>, TError = ErrorType<unknown>>(params?: ListProjectsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProjects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListProjectsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListProjectsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProjects>>> = ({ signal }) => listProjects({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProjects>>> = ({ signal }) => listProjects(params, { signal, ...requestOptions });
 
 
 
@@ -667,11 +675,11 @@ export type ListProjectsQueryError = ErrorType<unknown>
  */
 
 export function useListProjects<TData = Awaited<ReturnType<typeof listProjects>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProjects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListProjectsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProjects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListProjectsQueryOptions(options)
+  const queryOptions = getListProjectsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

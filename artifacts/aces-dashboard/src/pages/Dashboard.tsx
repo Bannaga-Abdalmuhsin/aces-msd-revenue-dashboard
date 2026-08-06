@@ -354,25 +354,33 @@ export default function Dashboard() {
 
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary(queryParams);
   const { data: monthly, isLoading: monthlyLoading } = useGetMonthlyTrend(queryParams);
-  const { data: performance, isLoading: perfLoading } = useGetProjectPerformance({
-    revenueYear: !usingDateRange && selectedYear ? Number(selectedYear) : undefined,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
-  });
-  const { data: projects, isLoading: projectsLoading } = useListProjects();
+  // Performance charts honour all filters including project
+  const { data: performance, isLoading: perfLoading } = useGetProjectPerformance(queryParams);
+  // All projects (no filter) — used for the dropdown and portfolio timeline
+  const { data: allProjects, isLoading: allProjectsLoading } = useListProjects();
+  // Filtered projects — used for the management table (respects all active filters)
+  const { data: filteredProjects, isLoading: filteredProjectsLoading } = useListProjects(queryParams);
 
-  // Derive years from projects
+  // Derive years from all projects (always unfiltered)
   const availableYears = useMemo(() => {
     const years = new Set<number>();
-    if (projects) {
-      for (const p of projects) {
+    if (allProjects) {
+      for (const p of allProjects) {
         if (p.contractStart) years.add(new Date(p.contractStart).getFullYear());
         if (p.contractEnd) years.add(new Date(p.contractEnd).getFullYear());
       }
     }
     years.add(new Date().getFullYear());
     return Array.from(years).sort();
-  }, [projects]);
+  }, [allProjects]);
+
+  // Portfolio timeline: always shows all projects but scoped to selected project if set
+  const timelineProjects = useMemo(() =>
+    selectedProject
+      ? (allProjects ?? []).filter(p => p.name === selectedProject)
+      : (allProjects ?? []),
+    [allProjects, selectedProject],
+  );
 
   const months = [
     { val: '1', label: 'January' }, { val: '2', label: 'February' }, { val: '3', label: 'March' },
@@ -456,7 +464,7 @@ export default function Dashboard() {
           {/* Project */}
           <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)} className={selectCls}>
             <option value="">All Projects</option>
-            {(projects ?? []).map(p => <option key={p.id} value={p.name}>{shortName(p.name)}</option>)}
+            {(allProjects ?? []).map(p => <option key={p.id} value={p.name}>{shortName(p.name)}</option>)}
           </select>
 
           {/* Divider */}
@@ -709,13 +717,13 @@ export default function Dashboard() {
         </div>
 
         {/* ── PROJECT PORTFOLIO TIMELINE ───────────────────── */}
-        <Section title="Project Portfolio Timeline">
-          {projectsLoading ? <Loading /> : <PortfolioTimeline projects={projects ?? []} />}
+        <Section title={selectedProject ? `Portfolio Timeline — ${shortName(selectedProject)}` : 'Project Portfolio Timeline'}>
+          {allProjectsLoading ? <Loading /> : <PortfolioTimeline projects={timelineProjects} />}
         </Section>
 
         {/* ── MANAGEMENT SUMMARY TABLE ─────────────────────── */}
         <Section title="Management Summary">
-          <ManagementTable projects={projects ?? []} loading={projectsLoading} />
+          <ManagementTable projects={filteredProjects ?? []} loading={filteredProjectsLoading} />
         </Section>
       </main>
 

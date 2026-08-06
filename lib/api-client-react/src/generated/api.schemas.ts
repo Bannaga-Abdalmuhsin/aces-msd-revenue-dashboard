@@ -447,6 +447,26 @@ page?: number;
 pageSize?: number;
 };
 
+export type ListProjectsParams = {
+project?: string;
+/**
+ * @nullable
+ */
+revenueYear?: number | null;
+/**
+ * @nullable
+ */
+revenueMonth?: number | null;
+/**
+ * Start YYYY-MM
+ */
+dateFrom?: string;
+/**
+ * End YYYY-MM
+ */
+dateTo?: string;
+};
+
 export type GetDashboardSummaryParams = {
 project?: string;
 /**
@@ -485,6 +505,7 @@ dateTo?: string;
 };
 
 export type GetProjectPerformanceParams = {
+project?: string;
 /**
  * @nullable
  */

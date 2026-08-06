@@ -6,18 +6,22 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type GetProjectPerformanceParams = {
+export type ListProjectsParams = {
 project?: string;
 /**
  * @nullable
  */
 revenueYear?: number | null;
 /**
- * Start of date range YYYY-MM
+ * @nullable
+ */
+revenueMonth?: number | null;
+/**
+ * Start YYYY-MM
  */
 dateFrom?: string;
 /**
- * End of date range YYYY-MM
+ * End YYYY-MM
  */
 dateTo?: string;
 };

@@ -36,6 +36,7 @@ export * from './invoiceListResponse';
 export * from './invoiceRecord';
 export * from './listAuditLogsParams';
 export * from './listInvoicesParams';
+export * from './listProjectsParams';
 export * from './listRecordsParams';
 export * from './monthlyTrendPoint';
 export * from './paymentStatusCount';

@@ -259,6 +259,14 @@ export const DeleteRecordResponse = zod.void()
 /**
  * @summary List all projects with aggregated stats
  */
+export const ListProjectsQueryParams = zod.object({
+  "project": zod.coerce.string().optional(),
+  "revenueYear": zod.coerce.number().nullish(),
+  "revenueMonth": zod.coerce.number().nullish(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional()
+})
+
 export const ListProjectsResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -481,6 +489,7 @@ export const GetMonthlyTrendResponse = zod.array(GetMonthlyTrendResponseItem)
  * @summary Get project performance data for charts
  */
 export const GetProjectPerformanceQueryParams = zod.object({
+  "project": zod.coerce.string().optional(),
   "revenueYear": zod.coerce.number().nullish(),
   "dateFrom": zod.coerce.string().optional(),
   "dateTo": zod.coerce.string().optional()
