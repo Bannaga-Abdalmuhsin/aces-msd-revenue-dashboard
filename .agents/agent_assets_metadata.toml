@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "tfs3R790tT0M3JbEbpRO7"
+uri = "file://attached_assets/revenue_records_export.csv"
+type = "table"
+title = "Revenue Records Export"
+description = "All 92 revenue records from the ACES MSD dashboard database, exported as CSV."
