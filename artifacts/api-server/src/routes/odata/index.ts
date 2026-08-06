@@ -26,16 +26,21 @@ const router: IRouter = Router();
  * e.g. https://myapp.replit.app/api
  */
 function baseUrl(req: Request): string {
+  const mountPath = req.baseUrl || ""; // e.g. "/api"
+
+  // 1. Explicit override — set in production via ODATA_BASE_URL env var
   if (process.env.ODATA_BASE_URL) return process.env.ODATA_BASE_URL.replace(/\/$/, "");
 
-  // x-forwarded-proto may be a comma-list; take the first value
+  // 2. Replit dev domain — always correct for the workspace preview URL
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}${mountPath}`;
+  }
+
+  // 3. Forwarded headers from the proxy (generic fallback)
   const rawProto = req.headers["x-forwarded-proto"];
   const proto = (Array.isArray(rawProto) ? rawProto[0] : rawProto)?.split(",")[0]?.trim() ?? req.protocol ?? "https";
-
   const rawHost = req.headers["x-forwarded-host"];
   const host = (Array.isArray(rawHost) ? rawHost[0] : rawHost)?.trim() ?? req.headers.host ?? req.hostname;
-
-  const mountPath = req.baseUrl || ""; // e.g. "/api"
   return `${proto}://${host}${mountPath}`;
 }
 
