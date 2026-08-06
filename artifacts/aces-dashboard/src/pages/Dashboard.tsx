@@ -306,140 +306,363 @@ function PortfolioTimeline({ projects }: { projects: any[] }) {
 }
 
 // ── Management Summary Table ──────────────────────────────────────────
-function ManagementTable({ projects, loading }: { projects: any[]; loading: boolean }) {
-  if (loading) return <Loading />;
-  const total = projects.reduce((a, p) => ({
-    poValue:              a.poValue              + p.poValue,
-    totalRevenue:         a.totalRevenue         + p.totalRevenue,
-    totalExpectedRevenue: a.totalExpectedRevenue + p.totalExpectedRevenue,
-    totalInvoiced:        a.totalInvoiced        + p.totalInvoiced,
-    totalCollected:       a.totalCollected       + p.totalCollected,
-    totalOutstanding:     a.totalOutstanding     + p.totalOutstanding,
-    totalDeductible:      a.totalDeductible      + (p.totalDeductible ?? 0),
-    totalPenalties:       a.totalPenalties       + (p.totalPenalties ?? 0),
-    totalNetRevenue:      a.totalNetRevenue      + (p.totalNetRevenue ?? 0),
-  }), { poValue: 0, totalRevenue: 0, totalExpectedRevenue: 0, totalInvoiced: 0,
-        totalCollected: 0, totalOutstanding: 0, totalDeductible: 0,
-        totalPenalties: 0, totalNetRevenue: 0 });
+type SortKey = 'name'|'workOrder'|'revenue'|'deductible'|'invoiced'|'collected'
+              |'outstanding'|'penalties'|'netRevenue'|'achievement'|'collectionRate';
 
-  const StatusBadge = ({ s }: { s: string }) => (
-    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide"
-      style={s === 'ongoing'
-        ? { background: C.navyTint, color: C.navy }
-        : { background: '#F3F4F6', color: C.slate }}>
-      {s}
+/** Thin progress bar for achievement / collection rate */
+function RatioBadge({ pct, threshHigh, threshMid }: {
+  pct: number; threshHigh: number; threshMid: number;
+}) {
+  const color = pct >= threshHigh ? C.navy : pct >= threshMid ? C.medBlue : C.red;
+  const barW  = Math.min(pct, 100);
+  return (
+    <div className="flex flex-col items-end gap-0.5" style={{ minWidth: 72 }}>
+      <span className="text-[11px] font-semibold tabular-nums" style={{ color }}>
+        {pct > 0 ? fmtPct(pct) : '0.0%'}
+      </span>
+      <div className="w-full rounded-full overflow-hidden" style={{ height: 3, background: C.navyTint }}>
+        <div className="h-full rounded-full transition-all duration-300"
+             style={{ width: `${barW}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
+/** Monetary cell — shows — for zero, full value otherwise */
+function MoneyCell({ n, color, bold }: { n: number; color: string; bold?: boolean }) {
+  if (n === 0) return (
+    <span className="tabular-nums" style={{ color: C.slate }}>—</span>
+  );
+  return (
+    <span className={`tabular-nums inline-flex items-center gap-0.5 ${bold ? 'font-semibold' : ''}`}
+          style={{ color }}>
+      <img src={riyalSignUrl} alt="﷼" className="inline-block flex-shrink-0"
+           style={{ height: '0.85em', width: 'auto', verticalAlign: 'middle',
+                    filter: 'brightness(0) saturate(100%)', opacity: bold ? 1 : 0.85 }} />
+      {fmtNum(n)}
     </span>
   );
+}
 
-  const headers = ['Project', 'Status', 'Contract', 'Work Order', 'Revenue',
-                   'Deductible', 'Invoiced', 'Collected', 'Outstanding',
-                   'Penalties', 'Net Revenue', 'Achievement', 'Collection'];
+function ManagementTable({ projects, loading }: { projects: any[]; loading: boolean }) {
+  const [sortKey, setSortKey] = useState<SortKey>('revenue');
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
+  const [search,  setSearch]  = useState('');
+  const [selectedId, setSelectedId] = useState<number|null>(null);
+
+  const toggle = (k: SortKey) => {
+    if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(k); setSortDir('desc'); }
+  };
+
+  const enriched = useMemo(() => projects.map(p => ({
+    ...p,
+    achievement:    p.totalExpectedRevenue > 0 ? (p.totalRevenue / p.totalExpectedRevenue) * 100 : 0,
+    collectionRate: p.totalInvoiced > 0        ? (p.totalCollected / p.totalInvoiced) * 100       : 0,
+  })), [projects]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? enriched.filter(p => p.name.toLowerCase().includes(q)) : enriched;
+  }, [enriched, search]);
+
+  const sorted = useMemo(() => [...filtered].sort((a, b) => {
+    let va: any, vb: any;
+    switch (sortKey) {
+      case 'name':           va = a.name;           vb = b.name; break;
+      case 'workOrder':      va = a.totalWorkOrder;  vb = b.totalWorkOrder; break;
+      case 'revenue':        va = a.totalRevenue;    vb = b.totalRevenue; break;
+      case 'deductible':     va = a.totalDeductible; vb = b.totalDeductible; break;
+      case 'invoiced':       va = a.totalInvoiced;   vb = b.totalInvoiced; break;
+      case 'collected':      va = a.totalCollected;  vb = b.totalCollected; break;
+      case 'outstanding':    va = a.totalOutstanding;vb = b.totalOutstanding; break;
+      case 'penalties':      va = a.totalPenalties;  vb = b.totalPenalties; break;
+      case 'netRevenue':     va = a.totalNetRevenue; vb = b.totalNetRevenue; break;
+      case 'achievement':    va = a.achievement;     vb = b.achievement; break;
+      case 'collectionRate': va = a.collectionRate;  vb = b.collectionRate; break;
+      default:               va = 0; vb = 0;
+    }
+    if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortDir === 'asc' ? va - vb : vb - va;
+  }), [filtered, sortKey, sortDir]);
+
+  const total = useMemo(() => sorted.reduce((a, p) => ({
+    workOrder:    a.workOrder    + (p.totalWorkOrder  ?? 0),
+    revenue:      a.revenue      + p.totalRevenue,
+    expected:     a.expected     + p.totalExpectedRevenue,
+    invoiced:     a.invoiced     + p.totalInvoiced,
+    collected:    a.collected    + p.totalCollected,
+    outstanding:  a.outstanding  + p.totalOutstanding,
+    deductible:   a.deductible   + (p.totalDeductible ?? 0),
+    penalties:    a.penalties    + (p.totalPenalties  ?? 0),
+    netRevenue:   a.netRevenue   + (p.totalNetRevenue ?? 0),
+  }), { workOrder:0, revenue:0, expected:0, invoiced:0, collected:0,
+        outstanding:0, deductible:0, penalties:0, netRevenue:0 }), [sorted]);
+
+  const totalAch  = total.expected  > 0 ? (total.revenue   / total.expected)  * 100 : 0;
+  const totalColl = total.invoiced  > 0 ? (total.collected / total.invoiced)  * 100 : 0;
+
+  /** Sort arrow indicator */
+  const SortArrow = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return <span className="opacity-0 group-hover:opacity-40 ml-0.5 text-[9px]">↕</span>;
+    return <span className="ml-0.5 text-[9px]">{sortDir === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  /** Sortable header cell */
+  const SH = ({ k, label, right }: { k: SortKey; label: string; right?: boolean }) => (
+    <th onClick={() => toggle(k)}
+        className={`group px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider
+                    whitespace-nowrap cursor-pointer select-none transition-colors duration-150
+                    ${right ? 'text-right' : 'text-left'}`}
+        style={{ color: '#fff', userSelect: 'none' }}>
+      <span className="inline-flex items-center gap-0.5 justify-end w-full">
+        {right && <SortArrow k={k} />}
+        {label}
+        {!right && <SortArrow k={k} />}
+      </span>
+    </th>
+  );
+
+  // Sticky project column styles
+  const stickyProjStyle: React.CSSProperties = {
+    position: 'sticky', left: 0, zIndex: 2,
+    boxShadow: '2px 0 6px rgba(18,46,100,0.08)',
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-40">
+      <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
+           style={{ borderColor: `${C.red} transparent ${C.red} ${C.red}` }} />
+    </div>
+  );
+
+  /* ── Mobile card layout ──────────────────────────────────────────── */
+  const MobileCard = ({ p }: { p: typeof sorted[0] }) => (
+    <div className="rounded-xl p-4 mb-3 transition-all duration-150"
+         style={{
+           background: C.white, border: `1px solid ${C.border}`,
+           boxShadow: '0 1px 4px rgba(18,46,100,0.07)',
+           borderLeft: selectedId === p.id ? `4px solid ${C.red}` : `4px solid transparent`,
+         }}
+         onClick={() => setSelectedId(id => id === p.id ? null : p.id)}>
+      <p className="font-semibold text-sm mb-2" style={{ color: C.navy }}>{p.name}</p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+        {([
+          ['Work Order', p.totalWorkOrder ?? 0, C.navy],
+          ['Revenue',    p.totalRevenue,        C.navy],
+          ['Invoiced',   p.totalInvoiced,       C.charcoal],
+          ['Collected',  p.totalCollected,      C.medBlue],
+          ['Outstanding',p.totalOutstanding,    p.totalOutstanding > 0 ? C.red : C.slate],
+          ['Net Revenue',p.totalNetRevenue ?? 0,(p.totalNetRevenue ?? 0) >= 0 ? C.navy : C.red],
+        ] as [string, number, string][]).map(([lbl, val, col]) => (
+          <div key={lbl}>
+            <span className="block text-[9px] uppercase tracking-wide mb-0.5" style={{ color: C.slate }}>{lbl}</span>
+            <MoneyCell n={val} color={col} />
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <div>
+          <span className="block text-[9px] uppercase tracking-wide mb-1" style={{ color: C.slate }}>Achievement</span>
+          <RatioBadge pct={p.achievement} threshHigh={100} threshMid={90} />
+        </div>
+        <div>
+          <span className="block text-[9px] uppercase tracking-wide mb-1" style={{ color: C.slate }}>Collection Rate</span>
+          <RatioBadge pct={p.collectionRate} threshHigh={90} threshMid={70} />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs" style={{ minWidth: '1100px' }}>
-        <thead>
-          <tr style={{ background: C.navy }}>
-            {headers.map(h => (
-              <th key={h} className="px-2.5 py-2 text-white font-semibold text-left whitespace-nowrap
-                                     first:rounded-tl last:rounded-tr">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {projects.map((p, i) => {
-            const achPct  = p.totalExpectedRevenue > 0
-              ? (p.totalRevenue / p.totalExpectedRevenue) * 100 : 0;
-            const collPct = p.totalInvoiced > 0
-              ? (p.totalCollected / p.totalInvoiced) * 100 : 0;
-            const achColor  = achPct  >= 100 ? C.navy : achPct  >= 90 ? C.medBlue : C.red;
-            const collColor = collPct >= 100 ? C.navy : collPct >= 90 ? C.medBlue : C.red;
-            return (
-              <tr key={p.id} style={{ background: i % 2 === 0 ? C.white : C.light }}>
-                <td className="px-2.5 py-1.5 font-medium whitespace-nowrap"
-                    style={{ color: C.charcoal }}>{shortName(p.name)}</td>
-                <td className="px-2.5 py-1.5"><StatusBadge s={p.status} /></td>
-                <td className="px-2.5 py-1.5 whitespace-nowrap" style={{ color: C.slate }}>
-                  {p.contractStart?.slice(0, 7) ?? '—'} → {p.contractEnd?.slice(0, 7) ?? '—'}
-                </td>
-                <td className="px-2.5 py-1.5 text-right font-medium whitespace-nowrap"
-                    style={{ color: C.navy }}><RiyalAmt n={p.poValue} /></td>
-                <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: C.navy }}><RiyalAmt n={p.totalRevenue} /></td>
-                <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: (p.totalDeductible ?? 0) > 0 ? C.red : C.slate }}>
-                  <RiyalAmt n={p.totalDeductible ?? 0} /></td>
-                <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: C.charcoal }}><RiyalAmt n={p.totalInvoiced} /></td>
-                <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: C.medBlue }}><RiyalAmt n={p.totalCollected} /></td>
-                <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: p.totalOutstanding > 0 ? C.red : C.slate }}>
-                  <RiyalAmt n={p.totalOutstanding} /></td>
-                <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: (p.totalPenalties ?? 0) > 0 ? C.red : C.slate }}>
-                  <RiyalAmt n={p.totalPenalties ?? 0} /></td>
-                <td className="px-2.5 py-1.5 text-right whitespace-nowrap"
-                    style={{ color: (p.totalNetRevenue ?? 0) >= 0 ? C.navy : C.red }}>
-                  <RiyalAmt n={p.totalNetRevenue ?? 0} /></td>
-                <td className="px-2.5 py-1.5 text-right">
-                  <span className="font-semibold" style={{ color: achColor }}>
-                    {fmtPct(achPct)}
-                  </span>
-                </td>
-                <td className="px-2.5 py-1.5 text-right">
-                  <span className="font-semibold" style={{ color: collColor }}>
-                    {fmtPct(collPct)}
-                  </span>
+    <div className="rounded-2xl overflow-hidden"
+         style={{ background: C.white, border: `1px solid ${C.border}`,
+                  boxShadow: '0 2px 12px rgba(18,46,100,0.07)' }}>
+
+      {/* ── Card header ──────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-5 py-4 border-b"
+           style={{ borderColor: C.border }}>
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-8 rounded-full flex-shrink-0" style={{ background: C.red }} />
+          <div>
+            <h2 className="text-sm font-bold leading-tight" style={{ color: C.navy }}>Management Summary</h2>
+            <p className="text-[11px] mt-0.5" style={{ color: C.slate }}>Financial performance by project</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                style={{ background: C.navyTint, color: C.navy }}>
+            {sorted.length} project{sorted.length !== 1 ? 's' : ''}
+          </span>
+          {/* Search */}
+          <input
+            type="text" value={search} placeholder="Search project…"
+            onChange={e => setSearch(e.target.value)}
+            className="text-[11px] rounded-lg px-2.5 py-1.5 outline-none transition-colors"
+            style={{ border: `1px solid ${C.border}`, color: C.charcoal,
+                     background: C.white, width: 160 }}
+          />
+        </div>
+      </div>
+
+      {/* ── Mobile cards ─────────────────────────────────────────────── */}
+      <div className="md:hidden p-4">
+        {sorted.length === 0
+          ? <p className="text-center py-8 text-[12px]" style={{ color: C.slate }}>No projects match.</p>
+          : sorted.map(p => <MobileCard key={p.id} p={p} />)}
+      </div>
+
+      {/* ── Desktop table ────────────────────────────────────────────── */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-[11px]" style={{ minWidth: 1280, borderCollapse: 'separate', borderSpacing: 0 }}>
+          <thead>
+            {/* Level 1 — Group headers */}
+            <tr style={{ background: C.navy }}>
+              <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-widest whitespace-nowrap rounded-tl-none"
+                  style={{ ...stickyProjStyle, background: C.navy, color: '#fff' }}>
+                PROJECT
+              </th>
+              {/* Financial Performance group */}
+              <th colSpan={8} className="px-3 py-2 text-center text-[10px] font-bold uppercase tracking-widest"
+                  style={{ color: '#fff', borderLeft: `1px solid rgba(255,255,255,0.15)` }}>
+                FINANCIAL PERFORMANCE
+              </th>
+              {/* Performance Ratios group */}
+              <th colSpan={2} className="px-3 py-2 text-center text-[10px] font-bold uppercase tracking-widest"
+                  style={{ color: '#fff', borderLeft: `1px solid rgba(255,255,255,0.15)` }}>
+                PERFORMANCE RATIOS
+              </th>
+            </tr>
+            {/* Level 2 — Column headers */}
+            <tr style={{ background: '#1a3a78' }}>
+              <th className="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap text-white"
+                  style={{ ...stickyProjStyle, background: '#1a3a78', cursor: 'pointer' }}
+                  onClick={() => toggle('name')}>
+                <span className="group inline-flex items-center gap-0.5">
+                  Project <SortArrow k="name" />
+                </span>
+              </th>
+              <SH k="workOrder"      label="Work Order"   right />
+              <SH k="revenue"        label="Revenue"      right />
+              <SH k="deductible"     label="Deductible"   right />
+              <SH k="invoiced"       label="Invoiced"     right />
+              <SH k="collected"      label="Collected"    right />
+              <SH k="outstanding"    label="Outstanding"  right />
+              <SH k="penalties"      label="Penalties"    right />
+              <SH k="netRevenue"     label="Net Revenue"  right />
+              <SH k="achievement"    label="Achievement"  right />
+              <SH k="collectionRate" label="Collection"   right />
+            </tr>
+          </thead>
+
+          <tbody>
+            {sorted.length === 0 ? (
+              <tr>
+                <td colSpan={11} className="text-center py-12"
+                    style={{ color: C.slate, fontSize: 12 }}>
+                  No projects match your search.
                 </td>
               </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr style={{ background: C.navyTint, borderTop: `2px solid ${C.navy}` }}>
-            <td className="px-2.5 py-2 font-bold" colSpan={3}
-                style={{ color: C.navy }}>Portfolio Total</td>
-            <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.navy }}><RiyalAmt n={total.poValue} /></td>
-            <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.navy }}><RiyalAmt n={total.totalRevenue} /></td>
-            <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: total.totalDeductible > 0 ? C.red : C.slate }}>
-              <RiyalAmt n={total.totalDeductible} /></td>
-            <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.charcoal }}><RiyalAmt n={total.totalInvoiced} /></td>
-            <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.medBlue }}><RiyalAmt n={total.totalCollected} /></td>
-            <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: C.red }}><RiyalAmt n={total.totalOutstanding} /></td>
-            <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: total.totalPenalties > 0 ? C.red : C.slate }}>
-              <RiyalAmt n={total.totalPenalties} /></td>
-            <td className="px-2.5 py-2 text-right font-bold whitespace-nowrap"
-                style={{ color: total.totalNetRevenue >= 0 ? C.navy : C.red }}>
-              <RiyalAmt n={total.totalNetRevenue} /></td>
-            <td className="px-2.5 py-2 text-right font-bold"
-                style={{ color: total.totalExpectedRevenue > 0
-                  ? (() => { const r = total.totalRevenue / total.totalExpectedRevenue;
-                             return r >= 1 ? C.navy : r >= 0.9 ? C.medBlue : C.red; })()
-                  : C.slate }}>
-              {total.totalExpectedRevenue > 0
-                ? fmtPct((total.totalRevenue / total.totalExpectedRevenue) * 100)
-                : '—'}
-            </td>
-            <td className="px-2.5 py-2 text-right font-bold"
-                style={{ color: total.totalInvoiced > 0
-                  ? (() => { const r = total.totalCollected / total.totalInvoiced;
-                             return r >= 1 ? C.navy : r >= 0.9 ? C.medBlue : C.red; })()
-                  : C.slate }}>
-              {total.totalInvoiced > 0
-                ? fmtPct((total.totalCollected / total.totalInvoiced) * 100)
-                : '—'}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+            ) : sorted.map((p, i) => {
+              const isSelected = selectedId === p.id;
+              const rowBg = isSelected ? '#EEF2FA' : i % 2 === 0 ? C.white : '#F8F9FB';
+              return (
+                <tr key={p.id}
+                    onClick={() => setSelectedId(id => id === p.id ? null : p.id)}
+                    style={{ background: rowBg, cursor: 'pointer',
+                             transition: 'background 150ms ease' }}
+                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = '#F0F4FF'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = rowBg; }}>
+
+                  {/* Sticky project cell */}
+                  <td className="px-3 py-3 font-semibold whitespace-nowrap text-left"
+                      style={{
+                        ...stickyProjStyle,
+                        background: rowBg,
+                        color: C.navy,
+                        minWidth: 200,
+                        borderLeft: isSelected ? `3px solid ${C.red}` : '3px solid transparent',
+                        transition: 'background 150ms ease',
+                      }}>
+                    {p.name}
+                  </td>
+
+                  <td className="px-3 py-3 text-right whitespace-nowrap">
+                    <MoneyCell n={p.totalWorkOrder ?? 0} color={C.navy} />
+                  </td>
+                  <td className="px-3 py-3 text-right whitespace-nowrap">
+                    <MoneyCell n={p.totalRevenue} color={C.navy} />
+                  </td>
+                  <td className="px-3 py-3 text-right whitespace-nowrap">
+                    <MoneyCell n={p.totalDeductible ?? 0} color={(p.totalDeductible ?? 0) > 0 ? C.red : C.slate} />
+                  </td>
+                  <td className="px-3 py-3 text-right whitespace-nowrap">
+                    <MoneyCell n={p.totalInvoiced} color={C.charcoal} />
+                  </td>
+                  <td className="px-3 py-3 text-right whitespace-nowrap">
+                    <MoneyCell n={p.totalCollected} color={C.medBlue} />
+                  </td>
+                  <td className="px-3 py-3 text-right whitespace-nowrap">
+                    <MoneyCell n={p.totalOutstanding} color={p.totalOutstanding > 0 ? C.red : C.slate} />
+                  </td>
+                  <td className="px-3 py-3 text-right whitespace-nowrap">
+                    <MoneyCell n={p.totalPenalties ?? 0} color={(p.totalPenalties ?? 0) > 0 ? C.critDark : C.slate} />
+                  </td>
+                  <td className="px-3 py-3 text-right whitespace-nowrap">
+                    <MoneyCell n={p.totalNetRevenue ?? 0} color={(p.totalNetRevenue ?? 0) >= 0 ? C.navy : C.red} bold />
+                  </td>
+                  <td className="px-4 py-3 text-right" style={{ minWidth: 90 }}>
+                    <RatioBadge pct={p.achievement} threshHigh={100} threshMid={90} />
+                  </td>
+                  <td className="px-4 py-3 text-right" style={{ minWidth: 90 }}>
+                    <RatioBadge pct={p.collectionRate} threshHigh={90} threshMid={70} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+
+          {/* ── Portfolio Total ────────────────────────────────────── */}
+          <tfoot>
+            <tr style={{ background: C.navyTint, borderTop: `2px solid ${C.navy}` }}>
+              <td className="px-3 py-3 font-bold text-left whitespace-nowrap"
+                  style={{ ...stickyProjStyle, background: C.navyTint, color: C.navy, fontSize: 12 }}>
+                Portfolio Total
+              </td>
+              <td className="px-3 py-3 text-right whitespace-nowrap">
+                <MoneyCell n={total.workOrder} color={C.navy} bold />
+              </td>
+              <td className="px-3 py-3 text-right whitespace-nowrap">
+                <MoneyCell n={total.revenue} color={C.navy} bold />
+              </td>
+              <td className="px-3 py-3 text-right whitespace-nowrap">
+                <MoneyCell n={total.deductible} color={total.deductible > 0 ? C.red : C.slate} bold />
+              </td>
+              <td className="px-3 py-3 text-right whitespace-nowrap">
+                <MoneyCell n={total.invoiced} color={C.charcoal} bold />
+              </td>
+              <td className="px-3 py-3 text-right whitespace-nowrap">
+                <MoneyCell n={total.collected} color={C.medBlue} bold />
+              </td>
+              <td className="px-3 py-3 text-right whitespace-nowrap">
+                <MoneyCell n={total.outstanding} color={total.outstanding > 0 ? C.red : C.slate} bold />
+              </td>
+              <td className="px-3 py-3 text-right whitespace-nowrap">
+                <MoneyCell n={total.penalties} color={total.penalties > 0 ? C.critDark : C.slate} bold />
+              </td>
+              <td className="px-3 py-3 text-right whitespace-nowrap">
+                <MoneyCell n={total.netRevenue} color={total.netRevenue >= 0 ? C.navy : C.red} bold />
+              </td>
+              <td className="px-4 py-3 text-right" style={{ minWidth: 90 }}>
+                <RatioBadge pct={totalAch} threshHigh={100} threshMid={90} />
+              </td>
+              <td className="px-4 py-3 text-right" style={{ minWidth: 90 }}>
+                <RatioBadge pct={totalColl} threshHigh={90} threshMid={70} />
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }
@@ -859,9 +1082,7 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
         </Section>
 
         {/* ── MANAGEMENT SUMMARY ───────────────────────────────────── */}
-        <Section title="Management Summary">
-          <ManagementTable projects={filteredProjects ?? []} loading={filteredLoading} />
-        </Section>
+        <ManagementTable projects={filteredProjects ?? []} loading={filteredLoading} />
 
       </main>
 
