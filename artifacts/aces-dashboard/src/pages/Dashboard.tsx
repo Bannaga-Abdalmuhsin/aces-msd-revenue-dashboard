@@ -82,13 +82,15 @@ interface KpiCardProps {
   sub?: React.ReactNode;
   valueColor?: string;
   icon?: React.ReactNode;
+  tooltip?: string;
 }
-function KpiCard({ label, value, sub, valueColor = C.charcoal, icon }: KpiCardProps) {
+function KpiCard({ label, value, sub, valueColor = C.charcoal, icon, tooltip }: KpiCardProps) {
   return (
-    <div className="bg-white rounded-md flex flex-col gap-1 p-3 min-w-0" style={{
+    <div className="bg-white rounded-md flex flex-col gap-1 p-3 min-w-0" title={tooltip} style={{
       border: `1px solid ${C.border}`,
       borderLeft: `4px solid ${C.red}`,
       boxShadow: '0 1px 3px rgba(18,46,100,0.06)',
+      cursor: tooltip ? 'help' : undefined,
     }}>
       <div className="flex items-center gap-1.5">
         {icon && <span className="flex-shrink-0 opacity-60">{icon}</span>}
@@ -965,11 +967,12 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.medBlue} viewBox="0 0 24 24" strokeWidth={2}><polyline points="20 6 9 17 4 12"/></svg>}
           />
           <KpiCard
-            label="Uninvoiced"
-            value={summaryLoading ? '…' : <RiyalAmt n={(summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0)} />}
-            sub="Revenue minus Invoiced"
-            valueColor={((summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0)) > 0 ? C.red : C.slate}
-            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.red} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+            label="Unbilled Revenue"
+            value={summaryLoading ? '…' : <RiyalAmt n={Math.max((summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0), 0)} />}
+            sub="Recognized revenue not yet invoiced"
+            valueColor={Math.max((summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0), 0) > 0 ? C.red : C.slate}
+            tooltip="Revenue recognized from completed work that has not yet been submitted to the customer as an invoice."
+            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={Math.max((summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0), 0) > 0 ? C.red : C.slate} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           />
           <KpiCard
             label="Net Revenue"

@@ -1,0 +1,101 @@
+CHANGE “UNINVOICED” TO “UNBILLED REVENUE”
+
+Replace every occurrence of:
+
+* Uninvoiced
+* Uninvoiced Revenue
+
+With:
+
+* Unbilled Revenue
+
+Do not use “Unbuilt,” because the correct accounting and financial term is “Unbilled Revenue.”
+
+DEFINITION
+
+Unbilled Revenue represents revenue already recognized for work completed but not yet submitted to the customer through an invoice.
+
+In the ACES MSD dashboard:
+
+* Revenue = Value of completed and recognized work.
+* Invoiced = Value formally billed to the customer.
+* Unbilled Revenue = Recognized Revenue not yet invoiced.
+
+FORMULA
+
+Calculate:
+
+```text
+Unbilled Revenue = Maximum of (Revenue − Invoiced, 0)
+```
+
+Code example:
+
+```ts
+const unbilledRevenue = Math.max(totalRevenue - totalInvoiced, 0);
+```
+
+Do not calculate it as:
+
+* Work Order minus Invoiced
+* Revenue minus Collected
+* Invoiced minus Collected
+* Outstanding invoices
+
+These figures have different meanings.
+
+DISPLAY REQUIREMENTS
+
+KPI title:
+
+`UNBILLED REVENUE`
+
+KPI subtitle:
+
+`Recognized revenue not yet invoiced`
+
+Tooltip:
+
+`Revenue recognized from completed work that has not yet been submitted to the customer as an invoice.`
+
+Use the full value:
+
+`SAR 2,650,211.7700`
+
+Do not use K, M, or B abbreviations.
+
+COLOR
+
+Use ACES red when Unbilled Revenue is greater than zero because it requires invoicing attention.
+
+Use muted grey when its value is zero.
+
+Do not use green.
+
+FILTER BEHAVIOR
+
+The Unbilled Revenue KPI must respond to:
+
+* Project filter
+* Year filter
+* Month filter
+* From date
+* To date
+
+Calculate it from all filtered CSV records:
+
+```text
+MAX(SUM(filtered Revenue) − SUM(filtered Invoiced), 0)
+```
+
+Do not calculate the maximum separately for every row and then sum it, because that could produce a different total.
+
+DATA INTEGRITY
+
+* Do not change any CSV values.
+* Do not create a new source column.
+* Keep this as a calculated dashboard metric.
+* Preserve all 177 records.
+* Preserve repeated STC COW records.
+* Do not merge or deduplicate project/month entries.
+* Update the KPI card, tooltips, exports, accessibility labels, variable names, and any Management Summary references consistently.

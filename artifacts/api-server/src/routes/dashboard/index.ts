@@ -249,7 +249,7 @@ router.get("/dashboard/insights", async (_req, res): Promise<void> => {
     const od = computeOverdue(invoiced, collected, r.dueDate, today);
     p.overdue += od;
     if (r.dueDate && r.dueDate < days60Ago && od > 0) p.overdue60 += od;
-    if (revenue > invoiced + 1) p.unbilled += revenue - invoiced;
+    p.unbilled += Math.max(revenue - invoiced, 0);
     if (r.days != null && collected > 0) { p.totalDays += r.days; p.daysCount++; }
   }
 
