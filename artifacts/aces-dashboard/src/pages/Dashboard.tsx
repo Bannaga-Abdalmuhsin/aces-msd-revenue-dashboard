@@ -322,6 +322,34 @@ function RatioBadge({ pct, threshHigh, threshMid }: {
   );
 }
 
+/** Excel-style conditional-formatting bar with a target-aware two-colour scale. */
+function PerformanceBar({ pct, target, label }: {
+  pct: number; target: number; label: string;
+}) {
+  const safePct = Number.isFinite(pct) ? Math.max(pct, 0) : 0;
+  const achieved = Math.min(safePct, 100);
+  const isOnTarget = safePct >= target;
+  const fill = isOnTarget ? C.navy : C.red;
+  const track = isOnTarget ? C.navyTint : '#FDE8EB';
+
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <span className="text-[10px] font-medium truncate" style={{ color: C.slate }}>{label}</span>
+        <span className="text-[11px] font-bold tabular-nums" style={{ color: fill }}>
+          {fmtPct(safePct)}
+        </span>
+      </div>
+      <div className="relative h-3 rounded-sm overflow-hidden" style={{ background: track }}>
+        <div className="h-full transition-all duration-500"
+             style={{ width: `${achieved}%`, background: fill }} />
+        <div className="absolute inset-y-0 w-px bg-white/90"
+             style={{ left: `${Math.min(target, 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
 /** Monetary cell — shows — for zero, full value otherwise */
 function MoneyCell({ n, color, bold }: { n: number; color: string; bold?: boolean }) {
   if (n === 0) return (
@@ -1011,67 +1039,76 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
           <Section title="Project Financial Performance">
             {perfLoading ? <Loading /> : (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart
-                  data={(performance ?? []).map(p => ({ ...p, projectName: shortName(p.projectName) }))}
-                  layout="vertical"
-                  margin={{ left: 4, right: 16, top: 4, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} horizontal={false} />
-                  <XAxis type="number" tickFormatter={fmtAxis}
-                         tick={{ fontSize: 10, fill: C.slate }} />
-                  <YAxis type="category" dataKey="projectName"
-                         tick={{ fontSize: 10, fill: C.charcoal }} width={80} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="workOrder" name="Work Order"
-                       fill={C.slate} opacity={0.55} radius={[0,3,3,0]} maxBarSize={10} />
-                  <Bar dataKey="revenue" name="Revenue"
-                       fill={C.navy} radius={[0,3,3,0]} maxBarSize={10} />
-                  <Bar dataKey="invoiced" name="Invoiced"
-                       fill={C.red} opacity={0.8} radius={[0,3,3,0]} maxBarSize={10} />
-                  <Bar dataKey="collected" name="Collected"
-                       fill={C.medBlue} radius={[0,3,3,0]} maxBarSize={10} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="min-h-[280px]">
+                <div className="grid grid-cols-[minmax(110px,0.75fr)_1fr_1fr] gap-4 px-2 pb-2 border-b"
+                     style={{ borderColor: C.border }}>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: C.slate }}>Project</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: C.navy }}>Invoice Conversion</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: C.navy }}>Collection Rate</span>
+                </div>
+                <div className="divide-y" style={{ borderColor: C.border }}>
+                  {(performance ?? []).map(p => {
+                    const invoicePct = p.revenue > 0 ? (p.invoiced / p.revenue) * 100 : 0;
+                    const collectionPct = p.invoiced > 0 ? (p.collected / p.invoiced) * 100 : 0;
+                    return (
+                      <div key={p.projectName}
+                           className="grid grid-cols-[minmax(110px,0.75fr)_1fr_1fr] gap-4 items-center px-2 py-2.5">
+                        <span className="text-xs font-semibold truncate" title={p.projectName} style={{ color: C.charcoal }}>
+                          {shortName(p.projectName)}
+                        </span>
+                        <PerformanceBar pct={invoicePct} target={95} label="Target 95%" />
+                        <PerformanceBar pct={collectionPct} target={90} label="Target 90%" />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-5 px-2 pt-3 text-[10px]" style={{ color: C.slate }}>
+                  <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm" style={{ background: C.navy }} />Target achieved</span>
+                  <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm" style={{ background: C.red }} />Below target</span>
+                </div>
+              </div>
             )}
           </Section>
 
           <Section title="Revenue Achievement by Project">
             {perfLoading ? <Loading /> : (
-              <div className="space-y-3 pt-1">
+              <div className="min-h-[280px] divide-y" style={{ borderColor: C.border }}>
                 {(performance ?? []).map(p => {
                   const pct = p.revenueAchievementPct;
-                  const barPct = Math.min(pct, 100);
-                  // Navy = 100%+, medium blue = 90–99.99%, red = below 90%
-                  const color = pct >= 100 ? C.navy
-                              : pct >= 90  ? C.medBlue
-                              : C.red;
+                  const achievedPct = Math.min(Math.max(pct, 0), 100);
+                  const gapPct = Math.max(100 - achievedPct, 0);
+                  const onTarget = pct >= 100;
                   return (
-                    <div key={p.projectName}>
+                    <div key={p.projectName} className="px-2 py-2.5">
                       <div className="flex justify-between items-baseline mb-1">
-                        <span className="text-xs font-medium" style={{ color: C.charcoal }}>
+                        <span className="text-xs font-semibold truncate pr-3" title={p.projectName} style={{ color: C.charcoal }}>
                           {shortName(p.projectName)}
                         </span>
-                        <span className="text-xs font-bold" style={{ color }}>
+                        <span className="text-xs font-bold tabular-nums" style={{ color: onTarget ? C.navy : C.red }}>
                           {fmtPct(pct)}
                         </span>
                       </div>
-                      <div className="h-2.5 rounded-full overflow-hidden"
-                           style={{ background: C.navyTint }}>
-                        <div className="h-full rounded-full transition-all duration-500"
-                             style={{ width: `${barPct}%`, background: color }} />
+                      <div className="flex h-3 rounded-sm overflow-hidden" title={`${fmtPct(pct)} achieved · ${gapPct.toFixed(1)}% gap`}>
+                        <div className="h-full transition-all duration-500"
+                             style={{ width: `${achievedPct}%`, background: C.navy }} />
+                        {gapPct > 0 && <div className="h-full transition-all duration-500"
+                                           style={{ width: `${gapPct}%`, background: C.red }} />}
                       </div>
-                      <div className="flex justify-between mt-0.5">
+                      <div className="flex justify-between mt-1">
                         <span className="text-[9px]" style={{ color: C.slate }}>
                           Rev: <RiyalAmt n={p.revenue} />
                         </span>
                         <span className="text-[9px]" style={{ color: C.slate }}>
-                          WO: <RiyalAmt n={p.workOrder} />
+                          Target: <RiyalAmt n={p.workOrder} />
                         </span>
                       </div>
                     </div>
                   );
                 })}
+                <div className="flex items-center gap-5 px-2 pt-3 text-[10px]" style={{ color: C.slate }}>
+                  <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm" style={{ background: C.navy }} />Achieved</span>
+                  <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm" style={{ background: C.red }} />Gap to 100%</span>
+                </div>
               </div>
             )}
           </Section>
