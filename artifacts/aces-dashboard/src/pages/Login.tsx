@@ -55,15 +55,15 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
           <polyline points="0,500 110,465 220,408 330,432 445,355 555,330 680,248 790,265 900,190" fill="none" stroke="#EF1E34" strokeWidth="3" />
         </svg>
 
-        <div className="relative z-10">
-          <div className="w-36 h-16 sm:w-40 sm:h-[72px] overflow-hidden flex items-center">
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <div className="w-36 h-16 sm:w-40 sm:h-[72px] overflow-hidden flex items-center justify-center">
             <img src={logoUrl} alt="ACES Managed Services Logo" className="w-full h-auto"
                  style={{ mixBlendMode: 'screen', transform: 'scale(1.18)', transformOrigin: 'center' }} />
           </div>
-          <div className="mt-5 lg:mt-16 max-w-2xl">
-            <p className="text-[11px] sm:text-xs font-semibold tracking-[0.18em] uppercase" style={{ color: 'rgba(255,255,255,0.67)' }}>Managed Services Department</p>
+          <div className="mt-5 lg:mt-16 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg font-semibold tracking-[0.06em]" style={{ color: 'rgba(255,255,255,0.78)' }}>Managed Services Department</p>
             <h1 className="mt-3 text-3xl sm:text-4xl xl:text-5xl font-bold tracking-tight text-white">Project Revenue Dashboard</h1>
-            <p className="mt-4 text-sm sm:text-base max-w-xl leading-relaxed" style={{ color: 'rgba(255,255,255,0.72)' }}>Secure access to revenue performance, invoicing and collection insights.</p>
+            <p className="mt-4 text-base sm:text-lg max-w-xl mx-auto leading-relaxed" style={{ color: 'rgba(255,255,255,0.78)' }}>Secure access to revenue performance, invoicing and collection insights.</p>
           </div>
         </div>
 
