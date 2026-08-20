@@ -918,11 +918,11 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
           />
           <KpiCard
             label="Unbilled Revenue"
-            value={summaryLoading ? '…' : <RiyalAmt n={Math.max((summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0), 0)} />}
+            value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalUnbilled ?? 0} />}
             sub="Recognized revenue not yet invoiced"
-            valueColor={Math.max((summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0), 0) > 0 ? C.red : C.slate}
+            valueColor={(summary?.totalUnbilled ?? 0) > 0 ? C.red : C.slate}
             tooltip="Revenue recognized from completed work that has not yet been submitted to the customer as an invoice."
-            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={Math.max((summary?.totalRevenue ?? 0) - (summary?.totalInvoiced ?? 0), 0) > 0 ? C.red : C.slate} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={(summary?.totalUnbilled ?? 0) > 0 ? C.red : C.slate} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           />
           <KpiCard
             label="Net Revenue"
