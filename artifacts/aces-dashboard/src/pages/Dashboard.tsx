@@ -754,7 +754,7 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
 
       {/* ── HEADER ──────────────────────────────────────────────────── */}
       <header className="aces-header px-6 py-3 pb-5">
-        <div className="max-w-screen-2xl mx-auto flex items-center justify-between gap-4">
+        <div className="w-full flex items-center justify-between gap-4">
 
           {/* Left: logo + divider + title */}
           <div className="flex items-center gap-4">
@@ -816,7 +816,7 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
 
       {/* ── FILTER BAR ──────────────────────────────────────────────── */}
       <div className="border-b bg-white px-6 py-2.5" style={{ borderColor: C.border }}>
-        <div className="max-w-screen-2xl mx-auto flex items-center gap-3 flex-wrap">
+        <div className="w-full flex items-center gap-3 flex-wrap">
           <span className="text-[11px] font-semibold uppercase tracking-wide"
                 style={{ color: C.navy }}>Filters:</span>
 
@@ -884,7 +884,7 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
         </div>
       </div>
 
-      <main className="max-w-screen-2xl mx-auto px-6 py-5 space-y-5">
+      <main className="w-full px-4 sm:px-6 xl:px-8 py-5 space-y-5">
 
         {/* ── 6 KPI CARDS ──────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
