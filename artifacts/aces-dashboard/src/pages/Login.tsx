@@ -56,9 +56,9 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         </svg>
 
         <div className="relative z-10">
-          <div className="w-44 h-20 sm:w-52 sm:h-24 overflow-hidden flex items-center">
+          <div className="w-36 h-16 sm:w-40 sm:h-[72px] overflow-hidden flex items-center">
             <img src={logoUrl} alt="ACES Managed Services Logo" className="w-full h-auto"
-                 style={{ mixBlendMode: 'screen', transform: 'scale(1.32)' }} />
+                 style={{ mixBlendMode: 'screen', transform: 'scale(1.18)', transformOrigin: 'center' }} />
           </div>
           <div className="mt-5 lg:mt-16 max-w-2xl">
             <p className="text-[11px] sm:text-xs font-semibold tracking-[0.18em] uppercase" style={{ color: 'rgba(255,255,255,0.67)' }}>Managed Services Department</p>
