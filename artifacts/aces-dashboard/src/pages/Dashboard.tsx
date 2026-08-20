@@ -1,16 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
   ComposedChart,
 } from 'recharts';
-import {
-  useGetDashboardSummary,
-  useGetMonthlyTrend,
-  useGetProjectPerformance,
-  useListProjects,
-} from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
+import { buildDashboardData, DATA_UPDATED_EVENT, loadRevenueData, parseRevenueFile, saveRevenueData } from '@/lib/local-revenue-data';
 import logoUrl from '@assets/MSD_Logo_1785945599981.png';
 import riyalSignUrl from '@assets/riyal-sign.png';
 
@@ -148,73 +143,20 @@ function ChartTooltip({ active, payload, label }: any) {
 }
 
 // ── Update Data Modal ─────────────────────────────────────────────────
-// Map CSV snake_case column names → API camelCase field names
-const CSV_COL_MAP: Record<string, string> = {
-  project: 'projectName',
-  revenue_month: 'revenueMonth',
-  work_order: 'workOrder',
-  revenue: 'revenue',
-  deductible: 'deductible',
-  invoiced: 'invoiced',
-  invoice_date: 'invoiceDate',
-  invoice_no: 'invoiceNo',
-  due_date: 'dueDate',
-  collected: 'collected',
-  collected_date: 'collectedDate',
-  days: 'days',
-  penalties: 'penalties',
-  net_revenue: 'netRevenue',
-};
-const NUMERIC_FIELDS = new Set(['workOrder', 'revenue', 'deductible', 'invoiced', 'collected', 'days', 'penalties', 'netRevenue']);
-
-function parseCsvRecord(rawHeaders: string[], values: string[]): Record<string, unknown> {
-  const raw: Record<string, string> = {};
-  rawHeaders.forEach((h, i) => { raw[h] = (values[i] ?? '').trim().replace(/^"|"$/g, ''); });
-
-  const rec: Record<string, unknown> = {};
-  for (const [csvCol, apiField] of Object.entries(CSV_COL_MAP)) {
-    const v = raw[csvCol] ?? '';
-    if (NUMERIC_FIELDS.has(apiField)) {
-      const n = parseFloat(v);
-      rec[apiField] = isNaN(n) ? 0 : n;
-    } else if (v === '') {
-      rec[apiField] = null;
-    } else {
-      rec[apiField] = v;
-    }
-  }
-  return rec;
-}
-
 function UpdateDataModal({ onClose }: { onClose: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [replaceAll, setReplaceAll] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ imported: number; skipped: number; warnings: any[] } | null>(null);
   const { toast } = useToast();
-  const BASE = import.meta.env.BASE_URL || '/';
-  const apiBase = BASE.endsWith('/') ? BASE.slice(0, -1) : BASE;
 
   const handleUpload = async () => {
     if (!file) return;
     setLoading(true);
     try {
-      const text = await file.text();
-      const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
-      const rawHeaders = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-      const records = lines.slice(1).map(line => {
-        const values = line.split(',');
-        return parseCsvRecord(rawHeaders, values);
-      });
-      const resp = await fetch(`${apiBase}/api/records/import`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ records, allowDuplicateInvoices: true, clearFirst: replaceAll }),
-      });
-      if (!resp.ok) {
-        const errBody = await resp.json().catch(() => ({}));
-        throw new Error(errBody.error ?? `HTTP ${resp.status}`);
-      }
-      const data = await resp.json();
+      const records = await parseRevenueFile(file);
+      saveRevenueData(records, replaceAll);
+      const data = { imported: records.length, skipped: 0, warnings: [] };
       setResult(data);
       toast({ title: `Imported ${data.imported} records` });
     } catch (err: any) {
@@ -232,7 +174,7 @@ function UpdateDataModal({ onClose }: { onClose: () => void }) {
         {!result ? (
           <>
             <p className="text-sm mb-3" style={{ color: C.slate }}>
-              Upload a CSV file in ACES MSD format.
+              Upload the ACES MSD Excel workbook. Data stays in this browser and is not uploaded publicly.
             </p>
             <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
               <input type="checkbox" checked={replaceAll} onChange={e => setReplaceAll(e.target.checked)}
@@ -251,9 +193,9 @@ function UpdateDataModal({ onClose }: { onClose: () => void }) {
                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
               <span className="text-sm" style={{ color: C.slate }}>
-                {file ? file.name : 'Click to select CSV file'}
+                {file ? file.name : 'Click to select Excel file'}
               </span>
-              <input type="file" accept=".csv" className="hidden"
+              <input type="file" accept=".xlsx,.xls" className="hidden"
                      onChange={e => setFile(e.target.files?.[0] ?? null)} />
             </label>
             <div className="flex gap-3 mt-4">
@@ -727,6 +669,13 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
   const [dateFrom,        setDateFrom]        = useState<string>('');
   const [dateTo,          setDateTo]          = useState<string>('');
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [records, setRecords] = useState(() => loadRevenueData());
+  useEffect(() => {
+    const reload = () => setRecords(loadRevenueData());
+    window.addEventListener(DATA_UPDATED_EVENT, reload);
+    window.addEventListener('storage', reload);
+    return () => { window.removeEventListener(DATA_UPDATED_EVENT, reload); window.removeEventListener('storage', reload); };
+  }, []);
 
   const usingDateRange = !!(dateFrom || dateTo);
   const queryParams = {
@@ -737,15 +686,16 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
     dateTo:       dateTo   || undefined,
   };
 
-  const { data: summary,          isLoading: summaryLoading   } = useGetDashboardSummary(queryParams);
-  const { data: monthly,          isLoading: monthlyLoading   } = useGetMonthlyTrend(queryParams);
-  const { data: performance,      isLoading: perfLoading      } = useGetProjectPerformance(queryParams);
-  const { data: allProjects,      isLoading: allProjectsLoading } = useListProjects();
-  const { data: filteredProjects, isLoading: filteredLoading  } = useListProjects(queryParams);
+  const { summary, monthly, performance, allProjects, filteredProjects } = useMemo(
+    () => buildDashboardData(records, queryParams),
+    [records, selectedProject, selectedYear, selectedMonth, dateFrom, dateTo],
+  );
+  const summaryLoading = false, monthlyLoading = false, perfLoading = false;
+  const allProjectsLoading = false, filteredLoading = false;
 
   const availableYears = useMemo(() => {
     const years = new Set<number>();
-    for (const p of allProjects ?? []) {
+    for (const p of allProjects) {
       if (p.contractStart) years.add(new Date(p.contractStart).getFullYear());
       if (p.contractEnd)   years.add(new Date(p.contractEnd).getFullYear());
     }
@@ -755,8 +705,8 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
 
   const timelineProjects = useMemo(() =>
     selectedProject
-      ? (allProjects ?? []).filter(p => p.name === selectedProject)
-      : (allProjects ?? []),
+      ? allProjects.filter(p => p.name === selectedProject)
+      : allProjects,
     [allProjects, selectedProject]);
 
   const months = [
@@ -775,11 +725,11 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
   const hasFilters = !!(selectedProject || selectedYear || selectedMonth || dateFrom || dateTo);
 
   // Collection donut data — ACES navy · red · critical dark only
-  const donutData = summary ? [
+  const donutData = [
     { name: 'Collected',   value: summary.totalCollected,   color: C.navy     },
     { name: 'Outstanding', value: summary.totalOutstanding, color: C.red      },
     { name: 'Overdue',     value: summary.totalOverdue,     color: C.critDark },
-  ].filter(d => d.value > 0) : [];
+  ].filter(d => d.value > 0);
 
   const lastUpdated = summary?.lastDataUpdate
     ? new Date(summary.lastDataUpdate).toLocaleDateString('en-US',
