@@ -45,9 +45,10 @@ const div=(a:number,b:number)=>b?a/b:0, out=(i:number,c:number)=>Math.max(i-c,0)
 const inMonth=(d:string|null,f:RevenueFilters)=>!!d&&(!f.dateFrom||d.slice(0,7)>=f.dateFrom.slice(0,7))&&(!f.dateTo||d.slice(0,7)<=f.dateTo.slice(0,7))&&(!!(f.dateFrom||f.dateTo)||((!f.revenueYear||+d.slice(0,4)===f.revenueYear)&&(!f.revenueMonth||+d.slice(5,7)===f.revenueMonth)));
 const inDay=(d:string|null,f:RevenueFilters)=>!!d&&(!f.dateFrom||d>=f.dateFrom)&&(!f.dateTo||d<=f.dateTo);
 const range=(f:RevenueFilters)=>!!(f.dateFrom||f.dateTo);
-const revOk=(r:RevenueRecord,f:RevenueFilters)=>inMonth(r.revenueMonth,f);
-const invOk=(r:RevenueRecord,f:RevenueFilters)=>range(f)?inDay(r.invoiceDate,f):inMonth(r.revenueMonth,f);
-const colOk=(r:RevenueRecord,f:RevenueFilters)=>range(f)?inDay(r.collectedDate,f):inMonth(r.revenueMonth,f);
+const temporal=(f:RevenueFilters)=>range(f)||!!f.revenueYear||!!f.revenueMonth;
+const revOk=(r:RevenueRecord,f:RevenueFilters)=>!temporal(f)||inMonth(r.revenueMonth,f);
+const invOk=(r:RevenueRecord,f:RevenueFilters)=>!temporal(f)||(range(f)?inDay(r.invoiceDate,f):inMonth(r.invoiceDate,f));
+const colOk=(r:RevenueRecord,f:RevenueFilters)=>!temporal(f)||(range(f)?inDay(r.collectedDate,f):inMonth(r.collectedDate,f));
 
 export function buildDashboardData(records:RevenueRecord[],f:RevenueFilters){
   const scoped=records.filter(r=>!f.project||r.projectName===f.project), now=new Date().toISOString().slice(0,10);
@@ -60,6 +61,6 @@ export function buildDashboardData(records:RevenueRecord[],f:RevenueFilters){
   const allProjects=names.map(n=>projectSummary(n,{})), filteredProjects=(f.project?names.filter(n=>n===f.project):names).map(n=>projectSummary(n,f));
   const performance=filteredProjects.map(p=>({projectName:p.name,workOrder:p.totalWorkOrder,revenue:p.totalRevenue,revenueAchievementPct:p.revenueAchievementPct,invoiced:p.totalInvoiced,collected:p.totalCollected,outstanding:p.totalOutstanding,expectedRevenue:p.totalWorkOrder,poValue:p.totalWorkOrder}));
   const mm=new Map<string,any>(),point=(m:string)=>{if(!mm.has(m))mm.set(m,{month:m,workOrder:0,revenue:0,invoiced:0,collected:0,netRevenue:0,expectedRevenue:0});return mm.get(m)};
-  for(const r of scoped){if(revOk(r,f)&&r.revenueMonth){const p=point(r.revenueMonth.slice(0,7));p.workOrder+=r.workOrder;p.revenue+=r.revenue;p.netRevenue+=r.netRevenue;p.expectedRevenue+=r.workOrder;}if(invOk(r,f)){const d=range(f)?r.invoiceDate:r.revenueMonth;if(d)point(d.slice(0,7)).invoiced+=r.invoiced;}if(colOk(r,f)){const d=range(f)?r.collectedDate:r.revenueMonth;if(d)point(d.slice(0,7)).collected+=r.collected;}}
+  for(const r of scoped){if(revOk(r,f)&&r.revenueMonth){const p=point(r.revenueMonth.slice(0,7));p.workOrder+=r.workOrder;p.revenue+=r.revenue;p.netRevenue+=r.netRevenue;p.expectedRevenue+=r.workOrder;}if(invOk(r,f)&&r.invoiceDate)point(r.invoiceDate.slice(0,7)).invoiced+=r.invoiced;if(colOk(r,f)&&r.collectedDate)point(r.collectedDate.slice(0,7)).collected+=r.collected;}
   return{summary,monthly:[...mm.values()].sort((a,b)=>a.month.localeCompare(b.month)),performance,allProjects,filteredProjects};
 }
