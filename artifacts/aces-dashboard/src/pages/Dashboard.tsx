@@ -35,12 +35,16 @@ function fmtNum(n: number): string {
 function fmtSARStr(n: number): string { return `${fmtNum(n)}`; }
 
 /** Inline riyal-sign + number, rendered as JSX everywhere */
-function RiyalAmt({ n, style }: { n: number; style?: React.CSSProperties }) {
+function RiyalAmt({ n, style, accounting = false }: { n: number; style?: React.CSSProperties; accounting?: boolean }) {
+  const negative = n < 0;
+  const value = accounting && negative ? Math.abs(n) : n;
   return (
     <span className="inline-flex items-center gap-0.5" style={style}>
+      {accounting && negative ? '(' : null}
       <img src={riyalSignUrl} alt="﷼" className="inline-block"
            style={{ height: '0.9em', width: 'auto', verticalAlign: 'middle', filter: 'brightness(0) saturate(100%)' }} />
-      {fmtNum(n)}
+      {fmtNum(value)}
+      {accounting && negative ? ')' : null}
     </span>
   );
 }
@@ -946,11 +950,11 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
           />
           <KpiCard
             label="Unbilled Revenue"
-            value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalUnbilled ?? 0} />}
+            value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalUnbilled ?? 0} accounting />}
             sub="Recognized revenue not yet invoiced"
-            valueColor={(summary?.totalUnbilled ?? 0) > 0 ? C.red : C.slate}
+            valueColor={(summary?.totalUnbilled ?? 0) !== 0 ? C.red : C.slate}
             tooltip="Revenue recognized from completed work that has not yet been submitted to the customer as an invoice."
-            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={(summary?.totalUnbilled ?? 0) > 0 ? C.red : C.slate} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+            icon={<svg className="w-3.5 h-3.5" fill="none" stroke={(summary?.totalUnbilled ?? 0) !== 0 ? C.red : C.slate} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           />
           <KpiCard
             label="Net Revenue"
