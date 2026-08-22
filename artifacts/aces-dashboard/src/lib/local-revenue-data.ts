@@ -13,17 +13,26 @@ export const DATA_UPDATED_EVENT = 'aces-revenue-data-updated';
 const REQUIRED = ['project','revenue_month','work_order','revenue','deductible','invoiced','invoice_date','invoice_no','due_date','collected','collected_date','days','penalties','net_revenue'];
 const header = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 const num = (v: unknown) => { const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(/[,\s]/g, '')); return Number.isFinite(n) ? n : 0; };
+const ymd = (y:number,m:number,d:number) => `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 const isoDate = (v: unknown): string | null => {
   if (v == null || v === '') return null;
   let d: Date;
-  if (v instanceof Date) d = v;
-  else if (typeof v === 'number') { const p = XLSX.SSF.parse_date_code(v); if (!p) return null; d = new Date(Date.UTC(p.y,p.m-1,p.d)); }
-  else { const s=String(v).trim(), m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); d=m?new Date(Date.UTC(+m[3],+m[1]-1,+m[2])):new Date(s); }
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0,10);
+  // SheetJS creates Excel dates at local midnight. Using toISOString() in a
+  // positive-offset timezone (for example Riyadh, UTC+3) moves them to the
+  // previous calendar day and can shift a revenue month into the prior month.
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : ymd(v.getFullYear(),v.getMonth()+1,v.getDate());
+  if (typeof v === 'number') { const p = XLSX.SSF.parse_date_code(v); return p ? ymd(p.y,p.m,p.d) : null; }
+  const s=String(v).trim();
+  const iso=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(iso)return ymd(+iso[1],+iso[2],+iso[3]);
+  const us=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(us)return ymd(+us[3],+us[1],+us[2]);
+  d=new Date(s);
+  return Number.isNaN(d.getTime()) ? null : ymd(d.getFullYear(),d.getMonth()+1,d.getDate());
 };
 
 export async function parseRevenueFile(file: File): Promise<RevenueRecord[]> {
-  const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+  // Keep native Excel date serials so SSF.parse_date_code can preserve the
+  // workbook calendar date without JavaScript timezone conversion.
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false});
   const sheetName=wb.SheetNames.find(n=>n.toLowerCase()==='revenue') ?? wb.SheetNames[0];
   if(!sheetName) throw new Error('The workbook has no worksheets.');
   const rows=XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName],{header:1,defval:null,raw:true});
@@ -53,9 +62,9 @@ const colOk=(r:RevenueRecord,f:RevenueFilters)=>!temporal(f)||(range(f)?inDay(r.
 export function buildDashboardData(records:RevenueRecord[],f:RevenueFilters){
   const scoped=records.filter(r=>!f.project||r.projectName===f.project), now=new Date().toISOString().slice(0,10);
   const summary={totalWorkOrder:0,totalRevenue:0,totalDeductible:0,totalInvoiced:0,totalCollected:0,totalOutstanding:0,totalOverdue:0,totalPenalties:0,totalNetRevenue:0,totalUnbilled:0,totalPoValue:0,totalExpectedRevenue:0,collectionRate:0,revenueAchievementRate:0,invoiceConversionRate:0,avgCollectionDays:0,lastDataUpdate:localStorage.getItem(`${STORAGE_KEY}-updated`)};
-  let daySum=0,dayCount=0,invoicedForRevenuePeriod=0;
-  for(const r of scoped){if(revOk(r,f)){summary.totalWorkOrder+=r.workOrder;summary.totalRevenue+=r.revenue;summary.totalDeductible+=r.deductible;summary.totalPenalties+=r.penalties;summary.totalNetRevenue+=r.netRevenue;invoicedForRevenuePeriod+=r.invoiced;}if(invOk(r,f))summary.totalInvoiced+=r.invoiced;if(colOk(r,f)){summary.totalCollected+=r.collected;if(r.dueDate&&r.dueDate<now)summary.totalOverdue+=out(r.invoiced,r.collected);if(r.days!=null&&r.collected>0){daySum+=r.days;dayCount++;}}}
-  summary.totalOutstanding=out(summary.totalInvoiced,summary.totalCollected);summary.totalUnbilled=out(summary.totalRevenue,invoicedForRevenuePeriod);summary.totalPoValue=summary.totalWorkOrder;summary.totalExpectedRevenue=summary.totalWorkOrder;summary.collectionRate=div(summary.totalCollected,summary.totalInvoiced)*100;summary.revenueAchievementRate=div(summary.totalRevenue,summary.totalWorkOrder)*100;summary.invoiceConversionRate=div(summary.totalInvoiced,summary.totalRevenue)*100;summary.avgCollectionDays=dayCount?daySum/dayCount:0;
+  let daySum=0,dayCount=0;
+  for(const r of scoped){if(revOk(r,f)){summary.totalWorkOrder+=r.workOrder;summary.totalRevenue+=r.revenue;summary.totalDeductible+=r.deductible;summary.totalPenalties+=r.penalties;summary.totalNetRevenue+=r.netRevenue;}if(invOk(r,f))summary.totalInvoiced+=r.invoiced;if(colOk(r,f)){summary.totalCollected+=r.collected;if(r.dueDate&&r.dueDate<now)summary.totalOverdue+=out(r.invoiced,r.collected);if(r.days!=null&&r.collected>0){daySum+=r.days;dayCount++;}}}
+  summary.totalOutstanding=out(summary.totalInvoiced,summary.totalCollected);summary.totalUnbilled=summary.totalRevenue-summary.totalInvoiced;summary.totalPoValue=summary.totalWorkOrder;summary.totalExpectedRevenue=summary.totalWorkOrder;summary.collectionRate=div(summary.totalCollected,summary.totalInvoiced)*100;summary.revenueAchievementRate=div(summary.totalRevenue,summary.totalWorkOrder)*100;summary.invoiceConversionRate=div(summary.totalInvoiced,summary.totalRevenue)*100;summary.avgCollectionDays=dayCount?daySum/dayCount:0;
   const names=[...new Set(records.map(r=>r.projectName))].sort();
   const projectSummary=(name:string,filters:RevenueFilters)=>{const rs=records.filter(r=>r.projectName===name);let wo=0,rev=0,ded=0,inv=0,col=0,pen=0,net=0,overdue=0,dt=0,dc=0,start:string|null=null,end:string|null=null;for(const r of rs){if(r.revenueMonth){if(!start||r.revenueMonth<start)start=r.revenueMonth;if(!end||r.revenueMonth>end)end=r.revenueMonth;}if(revOk(r,filters)){wo+=r.workOrder;rev+=r.revenue;ded+=r.deductible;pen+=r.penalties;net+=r.netRevenue;}if(invOk(r,filters))inv+=r.invoiced;if(colOk(r,filters)){col+=r.collected;if(r.dueDate&&r.dueDate<now)overdue+=out(r.invoiced,r.collected);if(r.days!=null&&r.collected>0){dt+=r.days;dc++;}}}return{id:names.indexOf(name)+1,name,status:end&&end<now?'completed':'ongoing',contractStart:start,contractEnd:end,poValue:wo,expectedMonthlyRevenue:0,totalExpectedRevenue:wo,remainingPO:Math.max(wo-rev,0),totalWorkOrder:wo,totalRevenue:rev,totalDeductible:ded,totalInvoiced:inv,totalCollected:col,totalOutstanding:out(inv,col),totalOverdue:overdue,totalPenalties:pen,totalNetRevenue:net,revenueAchievementPct:div(rev,wo)*100,collectionPct:div(col,inv)*100,avgCollectionDays:dc?dt/dc:0,latestRevenueMonth:end,latestInvoiceDate:null};};
   const allProjects=names.map(n=>projectSummary(n,{})), filteredProjects=(f.project?names.filter(n=>n===f.project):names).map(n=>projectSummary(n,f));
