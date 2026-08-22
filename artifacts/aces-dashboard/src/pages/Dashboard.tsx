@@ -694,7 +694,7 @@ function ManagementTable({ projects, loading }: { projects: any[]; loading: bool
 }
 
 // ── Main Dashboard ────────────────────────────────────────────────────
-export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
+export default function Dashboard({ onLogout, isAdmin = false }: { onLogout?: () => void; isAdmin?: boolean }) {
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [selectedYear,    setSelectedYear]    = useState<string>('');
   const [selectedMonth,   setSelectedMonth]   = useState<string>('');
@@ -1126,7 +1126,7 @@ export default function Dashboard({ onLogout }: { onLogout?: () => void }) {
         </Section>
 
         {/* ── MANAGEMENT SUMMARY ───────────────────────────────────── */}
-        <ManagementTable projects={filteredProjects ?? []} loading={filteredLoading} />
+        {isAdmin && <ManagementTable projects={filteredProjects ?? []} loading={filteredLoading} />}
 
       </main>
 

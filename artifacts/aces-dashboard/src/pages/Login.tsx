@@ -2,8 +2,9 @@ import { useState } from 'react';
 import logoUrl from '@assets/MSD_Logo_1785945599981.png';
 
 const CREDENTIAL_HASHES = [
-  'ba50fa91b7455b4ed9416acfe3fce83530b9a150548fbcbc61bf0f4c5d03dd42',
-  '8bb8e2ce18f5157b69f5314685f93d108ab314f57f386ac3d0fec44a63ca7993',
+  '72470eae5d1954da93d56ef47e0b2df54ff1f6a63c0e580f36da95a4a8cba97b',
+  '4a83aabdb47fad7d48e4c436f1f231336730972e83c6747356660c2d72a877db',
+  'd89512154d73d3f761a6f8b76d810ec85d27565759223b19e5ffae907519a9d9',
 ];
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
@@ -22,7 +23,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
       const digest = await crypto.subtle.digest('SHA-256', input);
       const key = Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
       if (CREDENTIAL_HASHES.includes(key)) {
-        localStorage.setItem('aces_auth', JSON.stringify({ username, ts: Date.now() }));
+        localStorage.setItem('aces_auth', JSON.stringify({ username: username.trim().toLowerCase(), ts: Date.now() }));
         onLogin();
       } else {
         setError('Invalid username or password. Please try again.');

@@ -4,6 +4,17 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import Dashboard from '@/pages/Dashboard';
 import Login from '@/pages/Login';
 
+const ADMIN_USERNAMES = new Set(['bannaga', 'hussam']);
+
+function getSessionUsername() {
+  try {
+    const session = JSON.parse(localStorage.getItem('aces_auth') || '{}');
+    return typeof session.username === 'string' ? session.username.trim().toLowerCase() : '';
+  } catch {
+    return '';
+  }
+}
+
 function useAuth() {
   const [authed, setAuthed] = useState<boolean>(() => {
     try { return !!localStorage.getItem('aces_auth'); }
@@ -24,7 +35,7 @@ export default function App() {
 
   return (
     <TooltipProvider>
-      <Dashboard onLogout={logout} />
+      <Dashboard onLogout={logout} isAdmin={ADMIN_USERNAMES.has(getSessionUsername())} />
       <Toaster />
     </TooltipProvider>
   );
