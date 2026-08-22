@@ -9,6 +9,8 @@ export interface RevenueRecord {
 export interface RevenueFilters { project?: string; revenueYear?: number; revenueMonth?: number; dateFrom?: string; dateTo?: string; }
 
 const STORAGE_KEY = 'aces-msd-revenue-data-v1';
+const STORAGE_VERSION_KEY = `${STORAGE_KEY}-schema-version`;
+const STORAGE_VERSION = '2';
 export const DATA_UPDATED_EVENT = 'aces-revenue-data-updated';
 const REQUIRED = ['project','revenue_month','work_order','revenue','deductible','invoiced','invoice_date','invoice_no','due_date','collected','collected_date','days','penalties','net_revenue'];
 const header = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -47,8 +49,37 @@ export async function parseRevenueFile(file: File): Promise<RevenueRecord[]> {
   if(!records.length) throw new Error('No valid revenue rows were found.');
   return records;
 }
-export function loadRevenueData(): RevenueRecord[] { try{return JSON.parse(localStorage.getItem(STORAGE_KEY)??'[]')}catch{return []} }
-export function saveRevenueData(records:RevenueRecord[],replace=true){const final=replace?records:[...loadRevenueData(),...records];localStorage.setItem(STORAGE_KEY,JSON.stringify(final));localStorage.setItem(`${STORAGE_KEY}-updated`,new Date().toISOString());window.dispatchEvent(new Event(DATA_UPDATED_EVENT));return final.length;}
+const addUtcDay = (value:string|null) => {
+  if(!value)return null;
+  const d=new Date(`${value}T00:00:00Z`); if(Number.isNaN(d.getTime()))return value;
+  d.setUTCDate(d.getUTCDate()+1); return d.toISOString().slice(0,10);
+};
+const isMonthEnd = (value:string|null) => {
+  if(!value)return false;
+  const next=addUtcDay(value); return !!next&&next.slice(8,10)==='01';
+};
+const migrateLegacyDates = (records:RevenueRecord[]) => {
+  // Legacy browser imports converted every Excel serial through a Riyadh-local
+  // Date, moving it one day backward. Monthly revenue dates therefore appear
+  // predominantly as month-end instead of the first day of their true month.
+  const dated=records.filter(r=>r.revenueMonth);
+  const legacy=dated.length>0&&dated.filter(r=>isMonthEnd(r.revenueMonth)).length>dated.filter(r=>r.revenueMonth?.slice(8,10)==='01').length;
+  if(!legacy)return records;
+  return records.map(r=>({...r,revenueMonth:addUtcDay(r.revenueMonth),invoiceDate:addUtcDay(r.invoiceDate),dueDate:addUtcDay(r.dueDate),collectedDate:addUtcDay(r.collectedDate)}));
+};
+export function loadRevenueData(): RevenueRecord[] {
+  try{
+    const records:RevenueRecord[]=JSON.parse(localStorage.getItem(STORAGE_KEY)??'[]');
+    if(localStorage.getItem(STORAGE_VERSION_KEY)!==STORAGE_VERSION){
+      const migrated=migrateLegacyDates(records);
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(migrated));
+      localStorage.setItem(STORAGE_VERSION_KEY,STORAGE_VERSION);
+      return migrated;
+    }
+    return records;
+  }catch{return []}
+}
+export function saveRevenueData(records:RevenueRecord[],replace=true){const final=replace?records:[...loadRevenueData(),...records];localStorage.setItem(STORAGE_KEY,JSON.stringify(final));localStorage.setItem(STORAGE_VERSION_KEY,STORAGE_VERSION);localStorage.setItem(`${STORAGE_KEY}-updated`,new Date().toISOString());window.dispatchEvent(new Event(DATA_UPDATED_EVENT));return final.length;}
 
 const div=(a:number,b:number)=>b?a/b:0, out=(i:number,c:number)=>Math.max(i-c,0);
 const inMonth=(d:string|null,f:RevenueFilters)=>!!d&&(!f.dateFrom||d.slice(0,7)>=f.dateFrom.slice(0,7))&&(!f.dateTo||d.slice(0,7)<=f.dateTo.slice(0,7))&&(!!(f.dateFrom||f.dateTo)||((!f.revenueYear||+d.slice(0,4)===f.revenueYear)&&(!f.revenueMonth||+d.slice(5,7)===f.revenueMonth)));
