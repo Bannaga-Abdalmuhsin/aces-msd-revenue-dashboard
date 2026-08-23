@@ -6,6 +6,8 @@ import logoUrl from '@assets/MSD_Logo_1785945599981.png';
 import riyalSignUrl from '@assets/riyal-sign.png';
 // ── Brand palette – strict ACES Navy · Red · Slate theme ─────────────
 const C = {
+    canvasNavy: '#0B1F42', // Full-page executive canvas
+    headerNavy: '#071831', // Deeper navigation/header layer
     navy: '#122E64', // ACES Navy — primary brand colour
     medBlue: '#485D86', // Medium blue — Collected series
     mutedBlue: '#6F82A6', // Muted blue shade
@@ -66,7 +68,7 @@ function KpiCard({ label, value, sub, valueColor = C.charcoal, icon, tooltip }) 
     return (<div className="bg-white rounded-xl flex flex-col gap-1 p-4 min-w-0 min-h-[112px]" title={tooltip} style={{
             border: `1px solid ${C.border}`,
             borderLeft: `4px solid ${C.red}`,
-            boxShadow: '0 1px 3px rgba(18,46,100,0.06)',
+            boxShadow: '0 8px 24px rgba(2,12,30,0.22)',
             cursor: tooltip ? 'help' : undefined,
         }}>
       <div className="flex items-center gap-1.5">
@@ -84,7 +86,7 @@ function KpiCard({ label, value, sub, valueColor = C.charcoal, icon, tooltip }) 
 function Section({ title, children, className = '' }) {
     return (<div className={`bg-white rounded-lg overflow-hidden flex flex-col min-h-0 ${className}`} style={{
             border: `1px solid ${C.border}`,
-            boxShadow: '0 1px 3px rgba(18,46,100,0.06)',
+            boxShadow: '0 8px 24px rgba(2,12,30,0.22)',
         }}>
       <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
         <div className="w-1 h-4 rounded-full flex-shrink-0" style={{ background: C.red }}/>
@@ -430,7 +432,7 @@ function ManagementTable({ projects, loading }) {
       </div>
     </div>);
     return (<div className="rounded-2xl overflow-hidden" style={{ background: C.white, border: `1px solid ${C.border}`,
-            boxShadow: '0 2px 12px rgba(18,46,100,0.07)' }}>
+            boxShadow: '0 10px 28px rgba(2,12,30,0.25)' }}>
 
       {/* ── Card header ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: C.border }}>
@@ -681,10 +683,10 @@ export default function Dashboard({ onLogout }) {
         'focus:outline-none focus:border-[#EF1E34] focus:ring-1 focus:ring-[#EF1E34]',
         'min-w-[120px]',
     ].join(' ');
-    return (<div className="min-h-screen flex flex-col" style={{ background: C.light, fontFamily: 'Inter, sans-serif' }}>
+    return (<div className="min-h-screen flex flex-col" style={{ background: C.canvasNavy, fontFamily: 'Inter, sans-serif' }}>
 
       {/* ── HEADER ──────────────────────────────────────────────────── */}
-      <header className="aces-header px-5 py-2.5">
+      <header className="aces-header px-5 py-2.5" style={{ background: C.headerNavy }}>
         <div className="w-full grid grid-cols-[auto_1fr_auto] items-center gap-4">
 
           {/* Left: logo + divider + title */}
@@ -775,7 +777,7 @@ export default function Dashboard({ onLogout }) {
         </div>
       </div>
 
-      <main className="w-full flex-1 px-4 sm:px-6 xl:px-8 py-5 space-y-5">
+      <main className="dashboard-canvas w-full flex-1 px-4 sm:px-6 xl:px-8 py-5 space-y-5">
 
         {/* ── EXECUTIVE KPI CARDS ─────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -871,7 +873,7 @@ export default function Dashboard({ onLogout }) {
       </main>
 
       {/* ── FOOTER ──────────────────────────────────────────────────── */}
-      <footer className="text-center py-4 text-[11px]" style={{ color: C.slate }}>
+      <footer className="text-center py-4 text-[11px]" style={{ color: 'rgba(255,255,255,0.68)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         ACES Managed Services Department · Project Revenue Dashboard · Confidential
       </footer>
 
