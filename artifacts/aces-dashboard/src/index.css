@@ -22,6 +22,8 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 html, body, #root {
+  min-width: 100%;
+  min-height: 100%;
   margin: 0;
   padding: 0;
   font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
@@ -64,4 +66,27 @@ html, body, #root {
 .recharts-legend-item-text {
   font-size: 11px !important;
   color: var(--aces-charcoal) !important;
+}
+
+/* Fill the current viewport with the six primary analytics cards. */
+.dashboard-chart-grid {
+  min-height: calc(100vh - 315px);
+  grid-auto-rows: minmax(300px, 1fr);
+}
+
+.dashboard-chart-card {
+  min-height: 300px;
+}
+
+/* ACES dark-red X-axis treatment across all dashboard charts. */
+.dashboard-chart-card .recharts-xAxis .recharts-cartesian-axis-tick-value {
+  fill: var(--aces-red-dark) !important;
+  font-weight: 600;
+}
+
+@media (max-width: 1535px) {
+  .dashboard-chart-grid {
+    min-height: auto;
+    grid-auto-rows: minmax(300px, 34vh);
+  }
 }
