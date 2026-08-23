@@ -41,7 +41,7 @@ jobs:
         env:
           NODE_ENV: production
           PORT: 4173
-          BASE_PATH: /aces-msd-revenue-dashboard/
+          BASE_PATH: /
         run: pnpm --filter @workspace/aces-dashboard build
 
       - name: Add SPA fallback
