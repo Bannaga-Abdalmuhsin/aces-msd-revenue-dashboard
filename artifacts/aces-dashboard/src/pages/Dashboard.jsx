@@ -88,9 +88,12 @@ function Section({ title, children, className = '' }) {
             border: `1px solid ${C.border}`,
             boxShadow: '0 8px 24px rgba(2,12,30,0.22)',
         }}>
-      <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
-        <div className="w-1 h-4 rounded-full flex-shrink-0" style={{ background: C.red }}/>
-        <h2 className="text-sm font-semibold" style={{ color: C.navy }}>{title}</h2>
+      <div className="relative overflow-hidden px-4 py-2.5 border-b flex items-center" style={{ borderColor: C.border, background: C.navy }}>
+        <h2 className="relative z-10 text-sm font-semibold text-white">{title}</h2>
+        <svg className="absolute right-0 top-0 h-full w-[78px]" viewBox="0 0 78 40" preserveAspectRatio="none" aria-hidden="true">
+          <polygon points="27,0 78,0 78,40 9,40" fill={C.red}/>
+          <polygon points="49,0 61,0 43,40 31,40" fill="#FFFFFF"/>
+        </svg>
       </div>
       <div className="p-4 flex-1 min-h-0">{children}</div>
     </div>);
