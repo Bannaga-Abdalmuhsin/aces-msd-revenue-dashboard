@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, } from 'recharts';
+import { Area, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 import { buildDashboardData, DATA_UPDATED_EVENT, loadRevenueData, parseRevenueFile, saveRevenueData } from '@/lib/local-revenue-data';
 import logoUrl from '@assets/MSD_Logo_1785945599981.png';
@@ -63,7 +63,7 @@ const Loading = () => (<div className="flex items-center justify-center h-32">
     <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${C.red} transparent ${C.red} ${C.red}` }}/>
   </div>);
 function KpiCard({ label, value, sub, valueColor = C.charcoal, icon, tooltip }) {
-    return (<div className="bg-white rounded-md flex flex-col gap-1 p-3 min-w-0" title={tooltip} style={{
+    return (<div className="bg-white rounded-xl flex flex-col gap-1 p-4 min-w-0 min-h-[112px]" title={tooltip} style={{
             border: `1px solid ${C.border}`,
             borderLeft: `4px solid ${C.red}`,
             boxShadow: '0 1px 3px rgba(18,46,100,0.06)',
@@ -73,9 +73,9 @@ function KpiCard({ label, value, sub, valueColor = C.charcoal, icon, tooltip }) 
         {icon && <span className="flex-shrink-0 opacity-60">{icon}</span>}
         <p className="text-[10px] font-semibold uppercase tracking-wider truncate" style={{ color: C.navy }}>{label}</p>
       </div>
-      <div className="font-bold leading-tight break-all" style={{
+      <div className="font-bold leading-tight mt-2 truncate" style={{
             color: valueColor,
-            fontSize: 'clamp(0.6rem, 1.1vw, 0.8rem)',
+            fontSize: 'clamp(1.05rem, 1.55vw, 1.65rem)',
         }}>{value}</div>
       {sub && <div className="text-[10px] truncate" style={{ color: C.slate }}>{sub}</div>}
     </div>);
@@ -635,6 +635,16 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
     const timelineProjects = useMemo(() => selectedProject
         ? allProjects.filter(p => p.name === selectedProject)
         : allProjects, [allProjects, selectedProject]);
+    const projectChartData = useMemo(() => [...(filteredProjects ?? [])]
+        .map(p => ({
+        project: shortName(p.name),
+        revenue: p.totalRevenue,
+        invoiced: p.totalInvoiced,
+        collected: p.totalCollected,
+        netRevenue: p.totalNetRevenue,
+        deductible: p.totalDeductible,
+    }))
+        .sort((a, b) => b.revenue - a.revenue), [filteredProjects]);
     const months = [
         { val: '1', label: 'January' }, { val: '2', label: 'February' },
         { val: '3', label: 'March' }, { val: '4', label: 'April' },
@@ -651,12 +661,6 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
         setDateTo('');
     };
     const hasFilters = !!(selectedProject || selectedYear || selectedMonth || dateFrom || dateTo);
-    // Collection donut data — ACES navy · red · critical dark only
-    const donutData = [
-        { name: 'Collected', value: summary.totalCollected, color: C.navy },
-        { name: 'Outstanding', value: summary.totalOutstanding, color: C.red },
-        { name: 'Overdue', value: summary.totalOverdue, color: C.critDark },
-    ].filter(d => d.value > 0);
     const lastUpdated = summary?.lastDataUpdate
         ? new Date(summary.lastDataUpdate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
         : 'N/A';
@@ -674,32 +678,27 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
     return (<div className="min-h-screen" style={{ background: C.light, fontFamily: 'Inter, sans-serif' }}>
 
       {/* ── HEADER ──────────────────────────────────────────────────── */}
-      <header className="aces-header px-6 py-3 pb-5">
-        <div className="w-full flex items-center justify-between gap-4">
+      <header className="aces-header px-5 py-2.5">
+        <div className="w-full grid grid-cols-[auto_1fr_auto] items-center gap-4">
 
           {/* Left: logo + divider + title */}
-          <div className="flex items-center gap-4">
-            <img src={logoUrl} alt="ACES Logo" className="flex-shrink-0" style={{ height: '64px', width: 'auto', objectFit: 'contain' }}/>
-            <div className="h-10 w-px flex-shrink-0" style={{ background: C.red }}/>
-            <div>
-              <p className="text-[11px] font-medium tracking-[0.15em] uppercase" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                Managed Services Department
-              </p>
-              <h1 className="text-lg font-bold text-white leading-tight">
-                Project Revenue Dashboard
-              </h1>
-            </div>
+          <div className="flex items-center">
+            <img src={logoUrl} alt="ACES Managed Services" className="flex-shrink-0" style={{ height: '44px', width: 'auto', objectFit: 'contain' }}/>
           </div>
 
+          <h1 className="text-lg sm:text-xl font-bold text-white text-center leading-tight">
+            ACES MSD | Revenue Performance Dashboard
+          </h1>
+
           {/* Right: meta + button */}
-          <div className="flex items-center gap-5 flex-shrink-0">
-            <div className="text-right hidden sm:block">
+          <div className="flex items-center justify-end gap-3 flex-shrink-0">
+            <div className="text-right hidden 2xl:block">
               <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
                 Reporting Period
               </p>
               <p className="text-sm font-semibold text-white">{reportingPeriod}</p>
             </div>
-            <div className="text-right hidden md:block">
+            <div className="text-right hidden 2xl:block">
               <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
                 Last Updated
               </p>
@@ -772,144 +771,93 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
 
       <main className="w-full px-4 sm:px-6 xl:px-8 py-5 space-y-5">
 
-        {/* ── 6 KPI CARDS ──────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiCard label="Work Order" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalPoValue ?? 0}/>} sub="Total contracted (all time)" valueColor={C.navy} icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.navy} viewBox="0 0 24 24" strokeWidth={2}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>}/>
-          <KpiCard label="Revenue" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalRevenue ?? 0}/>} sub={summaryLoading ? '' : `${fmtPct(summary?.revenueAchievementRate ?? 0)} of work order`} valueColor={C.navy} icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.navy} viewBox="0 0 24 24" strokeWidth={2}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>}/>
-          <KpiCard label="Invoiced" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalInvoiced ?? 0}/>} sub={summaryLoading ? '' : `${fmtPct(summary?.invoiceConversionRate ?? 0)} of revenue`} valueColor={C.charcoal} icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.charcoal} viewBox="0 0 24 24" strokeWidth={2}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>}/>
-          <KpiCard label="Collected" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalCollected ?? 0}/>} sub={summaryLoading ? '' : `${fmtPct(summary?.collectionRate ?? 0)} collection rate`} valueColor={C.medBlue} icon={<svg className="w-3.5 h-3.5" fill="none" stroke={C.medBlue} viewBox="0 0 24 24" strokeWidth={2}><polyline points="20 6 9 17 4 12"/></svg>}/>
-          <KpiCard label="Unbilled Revenue" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalUnbilled ?? 0} accounting/>} sub="Recognized revenue not yet invoiced" valueColor={(summary?.totalUnbilled ?? 0) !== 0 ? C.red : C.slate} tooltip="Revenue recognized from completed work that has not yet been submitted to the customer as an invoice." icon={<svg className="w-3.5 h-3.5" fill="none" stroke={(summary?.totalUnbilled ?? 0) !== 0 ? C.red : C.slate} viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}/>
-          <KpiCard label="Net Revenue" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalNetRevenue ?? 0}/>} sub="After penalties & deductions" valueColor={(summary?.totalNetRevenue ?? 0) >= 0 ? C.navy : C.red} icon={<img src={riyalSignUrl} alt="﷼" style={{ height: '14px', width: 'auto', filter: 'brightness(0) saturate(100%)', opacity: 0.7 }}/>}/>
+        {/* ── EXECUTIVE KPI CARDS ─────────────────────────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <KpiCard label="Total Revenue (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalRevenue ?? 0}/>} valueColor={C.navy}/>
+          <KpiCard label="Total Invoiced (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalInvoiced ?? 0}/>} valueColor={C.medBlue}/>
+          <KpiCard label="Total Collected (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalCollected ?? 0}/>} valueColor={C.navy}/>
+          <KpiCard label="Total Net Revenue (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalNetRevenue ?? 0}/>} valueColor={(summary?.totalNetRevenue ?? 0) >= 0 ? C.navy : C.red}/>
+          <KpiCard label="Total Unbilled Revenue (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalUnbilled ?? 0} accounting/>} valueColor={(summary?.totalUnbilled ?? 0) !== 0 ? C.red : C.slate}/>
         </div>
 
-        {/* ── MONTHLY + COLLECTION ─────────────────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-          <Section title="Monthly Financial Performance" className="xl:col-span-2">
-            {monthlyLoading ? <Loading /> : (<ResponsiveContainer width="100%" height={280}>
-                <ComposedChart data={monthly ?? []} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false}/>
-                  <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.slate }}/>
-                  <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={56}/>
-                  <Tooltip content={<ChartTooltip />}/>
-                  <Legend wrapperStyle={{ fontSize: 11 }}/>
-                  {/* Work Order */}
-                  <Bar dataKey="workOrder" name="Work Order" fill={C.slate} opacity={0.55} radius={[2, 2, 0, 0]} maxBarSize={14}/>
-                  {/* Revenue */}
-                  <Bar dataKey="revenue" name="Revenue" fill={C.navy} radius={[2, 2, 0, 0]} maxBarSize={14}/>
-                  {/* Invoiced */}
-                  <Bar dataKey="invoiced" name="Invoiced" fill={C.red} opacity={0.8} radius={[2, 2, 0, 0]} maxBarSize={14}/>
-                  {/* Collected */}
-                  <Line type="monotone" dataKey="collected" name="Collected" stroke={C.medBlue} strokeWidth={2} dot={{ r: 2, fill: C.medBlue }}/>
-                  {/* Net Revenue */}
-                  <Line type="monotone" dataKey="netRevenue" name="Net Revenue" stroke={C.charcoal} strokeWidth={1.5} strokeDasharray="4 2" dot={false}/>
-                </ComposedChart>
-              </ResponsiveContainer>)}
+        {/* ── SIMPLE 3 × 2 ANALYTICS GRID ─────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+          <Section title="Revenue Trend over Time">
+            <ResponsiveContainer width="100%" height={250}>
+              <ComposedChart data={monthly ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.border}/>
+                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.slate }}/>
+                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
+                <Tooltip content={<ChartTooltip />}/>
+                <Area type="monotone" dataKey="revenue" name="Revenue" stroke={C.navy} fill={C.mutedBlue} fillOpacity={0.5} strokeWidth={2} dot={{ r: 2 }}/>
+              </ComposedChart>
+            </ResponsiveContainer>
           </Section>
 
-          <Section title="Collection Overview">
-            {summaryLoading ? <Loading /> : (<div className="flex flex-col items-center">
-                <div className="relative w-full" style={{ height: 200 }}>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <PieChart>
-                      <Pie data={donutData} cx="50%" cy="50%" innerRadius={60} outerRadius={86} paddingAngle={2} dataKey="value" startAngle={90} endAngle={-270}>
-                        {donutData.map((d, i) => <Cell key={i} fill={d.color}/>)}
-                      </Pie>
-                      <Tooltip formatter={(v) => [fmtSARStr(v), '']}/>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: C.slate }}>Collection Rate</p>
-                    <p className="text-2xl font-bold" style={{ color: C.navy }}>
-                      {fmtPct(summary?.collectionRate ?? 0)}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 w-full mt-1 text-center">
-                  {donutData.map(d => (<div key={d.name}>
-                      <div className="w-3 h-3 rounded-full mx-auto mb-1" style={{ background: d.color }}/>
-                      <p className="text-[10px]" style={{ color: C.slate }}>{d.name}</p>
-                      <p className="text-[10px] font-bold break-all" style={{ color: d.color }}>
-                        <RiyalAmt n={d.value}/>
-                      </p>
-                    </div>))}
-                </div>
-              </div>)}
-          </Section>
-        </div>
-
-        {/* ── PROJECT CHARTS ───────────────────────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-          <Section title="Project Financial Performance">
-            {perfLoading ? <Loading /> : (<div className="min-h-[280px]">
-                <div className="grid grid-cols-[minmax(110px,0.75fr)_1fr_1fr] gap-4 px-2 pb-2 border-b" style={{ borderColor: C.border }}>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: C.slate }}>Project</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: C.navy }}>Invoice Conversion</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: C.navy }}>Collection Rate</span>
-                </div>
-                <div className="divide-y" style={{ borderColor: C.border }}>
-                  {(performance ?? []).map(p => {
-                const invoicePct = p.revenue > 0 ? (p.invoiced / p.revenue) * 100 : 0;
-                const collectionPct = p.invoiced > 0 ? (p.collected / p.invoiced) * 100 : 0;
-                return (<div key={p.projectName} className="grid grid-cols-[minmax(110px,0.75fr)_1fr_1fr] gap-4 items-center px-2 py-2.5">
-                        <span className="text-xs font-semibold truncate" title={p.projectName} style={{ color: C.charcoal }}>
-                          {shortName(p.projectName)}
-                        </span>
-                        <PerformanceBar pct={invoicePct} target={95} label="Target 95%"/>
-                        <PerformanceBar pct={collectionPct} target={90} label="Target 90%"/>
-                      </div>);
-            })}
-                </div>
-                <div className="flex items-center gap-5 px-2 pt-3 text-[10px]" style={{ color: C.slate }}>
-                  <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm" style={{ background: C.navy }}/>Target achieved</span>
-                  <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm" style={{ background: C.red }}/>Below target</span>
-                </div>
-              </div>)}
+          <Section title="Project Revenue Ranking">
+            <ResponsiveContainer width="100%" height={250}>
+              <ComposedChart data={projectChartData} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.border} horizontal={false}/>
+                <XAxis type="number" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }}/>
+                <YAxis type="category" dataKey="project" width={92} tick={{ fontSize: 10, fill: C.slate }}/>
+                <Tooltip content={<ChartTooltip />}/>
+                <Bar dataKey="revenue" name="Revenue" fill={C.navy} radius={[0, 3, 3, 0]} maxBarSize={18}/>
+              </ComposedChart>
+            </ResponsiveContainer>
           </Section>
 
-          <Section title="Revenue Achievement by Project">
-            {perfLoading ? <Loading /> : (<div className="min-h-[280px] divide-y" style={{ borderColor: C.border }}>
-                {(performance ?? []).map(p => {
-                const pct = p.revenueAchievementPct;
-                const achievedPct = Math.min(Math.max(pct, 0), 100);
-                const gapPct = Math.max(100 - achievedPct, 0);
-                const onTarget = pct >= 100;
-                return (<div key={p.projectName} className="px-2 py-2.5">
-                      <div className="flex justify-between items-baseline mb-1">
-                        <span className="text-xs font-semibold truncate pr-3" title={p.projectName} style={{ color: C.charcoal }}>
-                          {shortName(p.projectName)}
-                        </span>
-                        <span className="text-xs font-bold tabular-nums" style={{ color: onTarget ? C.navy : C.red }}>
-                          {fmtPct(pct)}
-                        </span>
-                      </div>
-                      <div className="flex h-3 rounded-sm overflow-hidden" title={`${fmtPct(pct)} achieved · ${gapPct.toFixed(1)}% gap`}>
-                        <div className="h-full transition-all duration-500" style={{ width: `${achievedPct}%`, background: C.navy }}/>
-                        {gapPct > 0 && <div className="h-full transition-all duration-500" style={{ width: `${gapPct}%`, background: C.red }}/>}
-                      </div>
-                      <div className="flex justify-between mt-1">
-                        <span className="text-[9px]" style={{ color: C.slate }}>
-                          Rev: <RiyalAmt n={p.revenue}/>
-                        </span>
-                        <span className="text-[9px]" style={{ color: C.slate }}>
-                          Target: <RiyalAmt n={p.workOrder}/>
-                        </span>
-                      </div>
-                    </div>);
-            })}
-                <div className="flex items-center gap-5 px-2 pt-3 text-[10px]" style={{ color: C.slate }}>
-                  <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm" style={{ background: C.navy }}/>Achieved</span>
-                  <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm" style={{ background: C.red }}/>Gap to 100%</span>
-                </div>
-              </div>)}
+          <Section title="Invoiced vs Collected Monthly">
+            <ResponsiveContainer width="100%" height={250}>
+              <ComposedChart data={monthly ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.border}/>
+                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.slate }}/>
+                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
+                <Tooltip content={<ChartTooltip />}/>
+                <Legend wrapperStyle={{ fontSize: 10 }}/>
+                <Bar dataKey="invoiced" name="Invoiced" fill={C.navy} radius={[3, 3, 0, 0]} maxBarSize={18}/>
+                <Line type="monotone" dataKey="collected" name="Collected" stroke={C.red} strokeWidth={2.5} dot={{ r: 2.5, fill: C.red }}/>
+              </ComposedChart>
+            </ResponsiveContainer>
+          </Section>
+
+          <Section title="Net Revenue by Project">
+            <ResponsiveContainer width="100%" height={250}>
+              <ComposedChart data={projectChartData} margin={{ top: 8, right: 8, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.border} vertical={false}/>
+                <XAxis dataKey="project" interval={0} angle={-25} textAnchor="end" tick={{ fontSize: 9, fill: C.slate }}/>
+                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
+                <Tooltip content={<ChartTooltip />}/>
+                <Bar dataKey="netRevenue" name="Net Revenue" fill={C.navy} radius={[3, 3, 0, 0]} maxBarSize={30}/>
+              </ComposedChart>
+            </ResponsiveContainer>
+          </Section>
+
+          <Section title="Deductions over Time">
+            <ResponsiveContainer width="100%" height={250}>
+              <ComposedChart data={monthly ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.border}/>
+                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.slate }}/>
+                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
+                <Tooltip content={<ChartTooltip />}/>
+                <Area type="monotone" dataKey="deductible" name="Deductions" stroke={C.navy} fill={C.mutedBlue} fillOpacity={0.55} strokeWidth={2}/>
+              </ComposedChart>
+            </ResponsiveContainer>
+          </Section>
+
+          <Section title="Revenue vs Net Revenue by Project">
+            <ResponsiveContainer width="100%" height={250}>
+              <ComposedChart data={projectChartData} margin={{ top: 8, right: 8, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.border} vertical={false}/>
+                <XAxis dataKey="project" interval={0} angle={-25} textAnchor="end" tick={{ fontSize: 9, fill: C.slate }}/>
+                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
+                <Tooltip content={<ChartTooltip />}/>
+                <Legend wrapperStyle={{ fontSize: 10 }}/>
+                <Bar dataKey="revenue" name="Revenue" fill={C.mutedBlue} radius={[3, 3, 0, 0]} maxBarSize={20}/>
+                <Bar dataKey="netRevenue" name="Net Revenue" fill={C.navy} radius={[3, 3, 0, 0]} maxBarSize={20}/>
+              </ComposedChart>
+            </ResponsiveContainer>
           </Section>
         </div>
-
-        {/* ── PORTFOLIO TIMELINE ───────────────────────────────────── */}
-        <Section title={selectedProject
-            ? `Portfolio Timeline — ${shortName(selectedProject)}`
-            : 'Project Portfolio Timeline'}>
-          {allProjectsLoading ? <Loading /> : <PortfolioTimeline projects={timelineProjects}/>}
-        </Section>
 
         {/* ── MANAGEMENT SUMMARY ───────────────────────────────────── */}
         {isAdmin && <ManagementTable projects={filteredProjects ?? []} loading={filteredLoading}/>}

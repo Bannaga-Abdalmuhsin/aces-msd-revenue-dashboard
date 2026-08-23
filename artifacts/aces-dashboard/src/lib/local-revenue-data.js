@@ -164,12 +164,13 @@ export function buildDashboardData(records, f) {
     const allProjects = names.map(n => projectSummary(n, {})), filteredProjects = (f.project ? names.filter(n => n === f.project) : names).map(n => projectSummary(n, f));
     const performance = filteredProjects.map(p => ({ projectName: p.name, workOrder: p.totalWorkOrder, revenue: p.totalRevenue, revenueAchievementPct: p.revenueAchievementPct, invoiced: p.totalInvoiced, collected: p.totalCollected, outstanding: p.totalOutstanding, expectedRevenue: p.totalWorkOrder, poValue: p.totalWorkOrder }));
     const mm = new Map(), point = (m) => { if (!mm.has(m))
-        mm.set(m, { month: m, workOrder: 0, revenue: 0, invoiced: 0, collected: 0, netRevenue: 0, expectedRevenue: 0 }); return mm.get(m); };
+        mm.set(m, { month: m, workOrder: 0, revenue: 0, deductible: 0, invoiced: 0, collected: 0, netRevenue: 0, expectedRevenue: 0 }); return mm.get(m); };
     for (const r of scoped) {
         if (revOk(r, f) && r.revenueMonth) {
             const p = point(r.revenueMonth.slice(0, 7));
             p.workOrder += r.workOrder;
             p.revenue += r.revenue;
+            p.deductible += r.deductible;
             p.netRevenue += r.netRevenue;
             p.expectedRevenue += r.workOrder;
         }
