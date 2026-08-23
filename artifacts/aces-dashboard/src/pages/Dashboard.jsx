@@ -686,16 +686,16 @@ export default function Dashboard({ onLogout }) {
     return (<div className="min-h-screen flex flex-col" style={{ background: C.canvasNavy, fontFamily: 'Inter, sans-serif' }}>
 
       {/* ── HEADER ──────────────────────────────────────────────────── */}
-      <header className="aces-header px-5 py-2.5" style={{ background: C.headerNavy }}>
+      <header className="aces-header px-5 py-2.5 relative" style={{ background: C.headerNavy }}>
         <div className="w-full grid grid-cols-[auto_1fr_auto] items-center gap-4">
 
           {/* Left: logo + divider + title */}
           <div className="flex items-center">
-            <img src={logoUrl} alt="ACES Managed Services" className="flex-shrink-0" style={{ height: '44px', width: 'auto', objectFit: 'contain' }}/>
+            <img src={logoUrl} alt="ACES Managed Services" className="flex-shrink-0 origin-left" style={{ height: '44px', width: 'auto', objectFit: 'contain', transform: 'scale(1.55)' }}/>
           </div>
 
-          <h1 className="text-lg sm:text-xl font-bold text-white text-center leading-tight">
-            ACES MSD | Revenue Performance Dashboard
+          <h1 className="absolute left-1/2 -translate-x-1/2 text-lg sm:text-xl font-bold text-white text-center leading-tight whitespace-nowrap pointer-events-none">
+            ACES MSD Revenue Performance Dashboard
           </h1>
 
           {/* Right: meta + button */}
