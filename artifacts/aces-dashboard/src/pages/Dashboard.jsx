@@ -82,6 +82,13 @@ function KpiCard({ label, value, sub, valueColor = C.charcoal, icon, tooltip }) 
       {sub && <div className="text-[10px] truncate" style={{ color: C.slate }}>{sub}</div>}
     </div>);
 }
+// ── ACES double-slash chart marker ───────────────────────────────────
+function ChartAccent() {
+    return (<span className="relative inline-block flex-shrink-0 overflow-hidden rounded-[2px]" aria-hidden="true" style={{ width: 18, height: 16, background: C.navy }}>
+      <span className="absolute -top-1 -bottom-1 w-[5px] -skew-x-[20deg]" style={{ left: 3, background: C.red }}/>
+      <span className="absolute -top-1 -bottom-1 w-[5px] -skew-x-[20deg]" style={{ left: 11, background: C.red }}/>
+    </span>);
+}
 // ── Section wrapper ───────────────────────────────────────────────────
 function Section({ title, children, className = '' }) {
     return (<div className={`bg-white rounded-lg overflow-hidden flex flex-col min-h-0 ${className}`} style={{
@@ -89,7 +96,7 @@ function Section({ title, children, className = '' }) {
             boxShadow: '0 8px 24px rgba(2,12,30,0.22)',
         }}>
       <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
-        <div className="w-1 h-4 rounded-full flex-shrink-0" style={{ background: C.red }}/>
+        <ChartAccent />
         <h2 className="text-sm font-semibold" style={{ color: C.navy }}>{title}</h2>
       </div>
       <div className="p-4 flex-1 min-h-0">{children}</div>
