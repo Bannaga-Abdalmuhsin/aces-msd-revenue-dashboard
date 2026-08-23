@@ -82,7 +82,7 @@ function KpiCard({ label, value, sub, valueColor = C.charcoal, icon, tooltip }) 
 }
 // ── Section wrapper ───────────────────────────────────────────────────
 function Section({ title, children, className = '' }) {
-    return (<div className={`bg-white rounded-lg overflow-hidden ${className}`} style={{
+    return (<div className={`bg-white rounded-lg overflow-hidden flex flex-col min-h-0 ${className}`} style={{
             border: `1px solid ${C.border}`,
             boxShadow: '0 1px 3px rgba(18,46,100,0.06)',
         }}>
@@ -90,7 +90,7 @@ function Section({ title, children, className = '' }) {
         <div className="w-1 h-4 rounded-full flex-shrink-0" style={{ background: C.red }}/>
         <h2 className="text-sm font-semibold" style={{ color: C.navy }}>{title}</h2>
       </div>
-      <div className="p-4">{children}</div>
+      <div className="p-4 flex-1 min-h-0">{children}</div>
     </div>);
 }
 // ── Chart tooltip – full SAR values ───────────────────────────────────
@@ -286,6 +286,7 @@ function ManagementTable({ projects, loading }) {
     const [sortDir, setSortDir] = useState('desc');
     const [search, setSearch] = useState('');
     const [selectedId, setSelectedId] = useState(null);
+    const [collapsed, setCollapsed] = useState(false);
     const toggle = (k) => {
         if (sortKey === k)
             setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -447,9 +448,13 @@ function ManagementTable({ projects, loading }) {
           {/* Search */}
           <input type="text" value={search} placeholder="Search project…" onChange={e => setSearch(e.target.value)} className="text-[11px] rounded-lg px-2.5 py-1.5 outline-none transition-colors" style={{ border: `1px solid ${C.border}`, color: C.charcoal,
             background: C.white, width: 160 }}/>
+          <button type="button" onClick={() => setCollapsed(value => !value)} aria-expanded={!collapsed} className="text-[11px] font-semibold rounded-lg px-3 py-1.5 transition-colors" style={{ border: `1px solid ${C.border}`, color: C.navy, background: C.white }}>
+            {collapsed ? 'Expand ▾' : 'Collapse ▴'}
+          </button>
         </div>
       </div>
 
+      {!collapsed && <>
       {/* ── Mobile cards ─────────────────────────────────────────────── */}
       <div className="md:hidden p-4">
         {sorted.length === 0
@@ -593,10 +598,11 @@ function ManagementTable({ projects, loading }) {
           </tfoot>
         </table>
       </div>
+      </>}
     </div>);
 }
 // ── Main Dashboard ────────────────────────────────────────────────────
-export default function Dashboard({ onLogout, isAdmin = false }) {
+export default function Dashboard({ onLogout }) {
     const [selectedProject, setSelectedProject] = useState('');
     const [selectedYear, setSelectedYear] = useState('');
     const [selectedMonth, setSelectedMonth] = useState('');
@@ -675,7 +681,7 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
         'focus:outline-none focus:border-[#EF1E34] focus:ring-1 focus:ring-[#EF1E34]',
         'min-w-[120px]',
     ].join(' ');
-    return (<div className="min-h-screen" style={{ background: C.light, fontFamily: 'Inter, sans-serif' }}>
+    return (<div className="min-h-screen flex flex-col" style={{ background: C.light, fontFamily: 'Inter, sans-serif' }}>
 
       {/* ── HEADER ──────────────────────────────────────────────────── */}
       <header className="aces-header px-5 py-2.5">
@@ -769,7 +775,7 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
         </div>
       </div>
 
-      <main className="w-full px-4 sm:px-6 xl:px-8 py-5 space-y-5">
+      <main className="w-full flex-1 px-4 sm:px-6 xl:px-8 py-5 space-y-5">
 
         {/* ── EXECUTIVE KPI CARDS ─────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -781,12 +787,12 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
         </div>
 
         {/* ── SIMPLE 3 × 2 ANALYTICS GRID ─────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
-          <Section title="Revenue Trend over Time">
-            <ResponsiveContainer width="100%" height={250}>
+        <div className="dashboard-chart-grid grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+          <Section title="Revenue Trend over Time" className="dashboard-chart-card">
+            <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={monthly ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="2 4" stroke={C.border}/>
-                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.slate }}/>
+                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.redDark }}/>
                 <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
                 <Tooltip content={<ChartTooltip />}/>
                 <Area type="monotone" dataKey="revenue" name="Revenue" stroke={C.navy} fill={C.mutedBlue} fillOpacity={0.5} strokeWidth={2} dot={{ r: 2 }}/>
@@ -794,11 +800,11 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
             </ResponsiveContainer>
           </Section>
 
-          <Section title="Project Revenue Ranking">
-            <ResponsiveContainer width="100%" height={250}>
+          <Section title="Project Revenue Ranking" className="dashboard-chart-card">
+            <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={projectChartData} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="2 4" stroke={C.border} horizontal={false}/>
-                <XAxis type="number" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }}/>
+                <XAxis type="number" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.redDark }}/>
                 <YAxis type="category" dataKey="project" width={92} tick={{ fontSize: 10, fill: C.slate }}/>
                 <Tooltip content={<ChartTooltip />}/>
                 <Bar dataKey="revenue" name="Revenue" fill={C.navy} radius={[0, 3, 3, 0]} maxBarSize={18}/>
@@ -806,11 +812,11 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
             </ResponsiveContainer>
           </Section>
 
-          <Section title="Invoiced vs Collected Monthly">
-            <ResponsiveContainer width="100%" height={250}>
+          <Section title="Invoiced vs Collected Monthly" className="dashboard-chart-card">
+            <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={monthly ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="2 4" stroke={C.border}/>
-                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.slate }}/>
+                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.redDark }}/>
                 <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
                 <Tooltip content={<ChartTooltip />}/>
                 <Legend wrapperStyle={{ fontSize: 10 }}/>
@@ -820,11 +826,11 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
             </ResponsiveContainer>
           </Section>
 
-          <Section title="Net Revenue by Project">
-            <ResponsiveContainer width="100%" height={250}>
+          <Section title="Net Revenue by Project" className="dashboard-chart-card">
+            <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={projectChartData} margin={{ top: 8, right: 8, left: 0, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="2 4" stroke={C.border} vertical={false}/>
-                <XAxis dataKey="project" interval={0} angle={-25} textAnchor="end" tick={{ fontSize: 9, fill: C.slate }}/>
+                <XAxis dataKey="project" interval={0} angle={-25} textAnchor="end" tick={{ fontSize: 9, fill: C.redDark }}/>
                 <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
                 <Tooltip content={<ChartTooltip />}/>
                 <Bar dataKey="netRevenue" name="Net Revenue" fill={C.navy} radius={[3, 3, 0, 0]} maxBarSize={30}/>
@@ -832,11 +838,11 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
             </ResponsiveContainer>
           </Section>
 
-          <Section title="Deductions over Time">
-            <ResponsiveContainer width="100%" height={250}>
+          <Section title="Deductions over Time" className="dashboard-chart-card">
+            <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={monthly ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="2 4" stroke={C.border}/>
-                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.slate }}/>
+                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.redDark }}/>
                 <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
                 <Tooltip content={<ChartTooltip />}/>
                 <Area type="monotone" dataKey="deductible" name="Deductions" stroke={C.navy} fill={C.mutedBlue} fillOpacity={0.55} strokeWidth={2}/>
@@ -844,11 +850,11 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
             </ResponsiveContainer>
           </Section>
 
-          <Section title="Revenue vs Net Revenue by Project">
-            <ResponsiveContainer width="100%" height={250}>
+          <Section title="Revenue vs Net Revenue by Project" className="dashboard-chart-card">
+            <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={projectChartData} margin={{ top: 8, right: 8, left: 0, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="2 4" stroke={C.border} vertical={false}/>
-                <XAxis dataKey="project" interval={0} angle={-25} textAnchor="end" tick={{ fontSize: 9, fill: C.slate }}/>
+                <XAxis dataKey="project" interval={0} angle={-25} textAnchor="end" tick={{ fontSize: 9, fill: C.redDark }}/>
                 <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
                 <Tooltip content={<ChartTooltip />}/>
                 <Legend wrapperStyle={{ fontSize: 10 }}/>
@@ -860,7 +866,7 @@ export default function Dashboard({ onLogout, isAdmin = false }) {
         </div>
 
         {/* ── MANAGEMENT SUMMARY ───────────────────────────────────── */}
-        {isAdmin && <ManagementTable projects={filteredProjects ?? []} loading={filteredLoading}/>}
+        <ManagementTable projects={filteredProjects ?? []} loading={filteredLoading}/>
 
       </main>
 
