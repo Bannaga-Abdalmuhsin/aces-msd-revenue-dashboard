@@ -13,6 +13,8 @@ Open **Authentication → Users → Add user** and create each dashboard account
 For the current administrator:
 
 - `bannaga.altieb@aces-co.com`
+- `hussam@aces-co.com`
+- `mquhal@aces-co.com`
 
 Then run:
 
@@ -26,7 +28,7 @@ set username = excluded.username,
     role = excluded.role;
 ```
 
-The login page continues to accept the short username `Bannaga`.
+The login page accepts the short usernames `Bannaga`, `Hussam`, and `Quhal`.
 
 ## 3. Deploy
 

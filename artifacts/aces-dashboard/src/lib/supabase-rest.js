@@ -3,6 +3,8 @@ const PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 const SESSION_KEY = 'aces_supabase_session';
 const LOGIN_EMAILS = {
   bannaga: 'bannaga.altieb@aces-co.com',
+  hussam: 'hussam@aces-co.com',
+  quhal: 'mquhal@aces-co.com',
 };
 
 export const supabaseConfigured = Boolean(SUPABASE_URL && PUBLISHABLE_KEY);
