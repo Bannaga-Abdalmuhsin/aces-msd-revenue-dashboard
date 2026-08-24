@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Area, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
-import { buildDashboardData, DATA_UPDATED_EVENT, loadRevenueData, parseRevenueFile, saveRevenueData } from '@/lib/local-revenue-data';
+import { buildDashboardData, parseRevenueFile } from '@/lib/local-revenue-data';
+import { announceVersionPublished, loadActiveRevenueData, uploadRevenueVersion, watchActiveVersion } from '@/lib/revenue-repository';
 import logoUrl from '@assets/MSD_Logo_1785945599981.png';
 import riyalSignUrl from '@assets/riyal-sign.png';
 // ── Brand palette – strict ACES Navy · Red · Slate theme ─────────────
@@ -118,9 +119,8 @@ function ChartTooltip({ active, payload, label }) {
     </div>);
 }
 // ── Update Data Modal ─────────────────────────────────────────────────
-function UpdateDataModal({ onClose }) {
+function UpdateDataModal({ onClose, onPublished }) {
     const [file, setFile] = useState(null);
-    const [replaceAll, setReplaceAll] = useState(true);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const { toast } = useToast();
@@ -130,10 +130,11 @@ function UpdateDataModal({ onClose }) {
         setLoading(true);
         try {
             const records = await parseRevenueFile(file);
-            saveRevenueData(records, replaceAll);
-            const data = { imported: records.length, skipped: 0, warnings: [] };
+            const data = await uploadRevenueVersion(file, records);
+            announceVersionPublished();
+            await onPublished();
             setResult(data);
-            toast({ title: `Imported ${data.imported} records` });
+            toast({ title: `Published version ${data.version_number}`, description: `${data.imported} records are now synchronized.` });
         }
         catch (err) {
             toast({ title: 'Import failed', description: err.message, variant: 'destructive' });
@@ -150,15 +151,8 @@ function UpdateDataModal({ onClose }) {
         </div>
         {!result ? (<>
             <p className="text-sm mb-3" style={{ color: C.slate }}>
-              Upload the ACES MSD Excel workbook. Data stays in this browser and is not uploaded publicly.
+              Upload the ACES MSD Excel workbook. It will be stored as a private, numbered version and synchronized to every dashboard.
             </p>
-            <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
-              <input type="checkbox" checked={replaceAll} onChange={e => setReplaceAll(e.target.checked)} className="w-4 h-4 rounded" style={{ accentColor: C.red }}/>
-              <span className="text-sm font-medium" style={{ color: C.charcoal }}>
-                Replace all existing data
-              </span>
-              <span className="text-xs" style={{ color: C.slate }}>(recommended for full refresh)</span>
-            </label>
             <label className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-8 cursor-pointer transition-colors" style={{ borderColor: C.border }} onMouseOver={e => (e.currentTarget.style.borderColor = C.red)} onMouseOut={e => (e.currentTarget.style.borderColor = C.border)}>
               <svg className="w-8 h-8 mb-2" fill="none" stroke={C.slate} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
@@ -173,13 +167,13 @@ function UpdateDataModal({ onClose }) {
                 Cancel
               </button>
               <button onClick={handleUpload} disabled={!file || loading} className="flex-1 px-4 py-2 text-sm text-white rounded-lg font-semibold disabled:opacity-50" style={{ background: C.red }}>
-                {loading ? 'Importing…' : 'Import'}
+                {loading ? 'Publishing…' : 'Publish Version'}
               </button>
             </div>
           </>) : (<>
             <div className="flex items-center gap-3 p-3 rounded-lg mb-3" style={{ background: C.navyTint }}>
               <span className="text-xl font-bold" style={{ color: C.navy }}>✓</span>
-              <p className="text-sm font-semibold" style={{ color: C.navy }}>{result.imported} records imported</p>
+              <p className="text-sm font-semibold" style={{ color: C.navy }}>Version {result.version_number} published · {result.imported} records</p>
             </div>
             {result.warnings.slice(0, 5).map((w, i) => (<p key={i} className="text-xs text-amber-700 py-0.5">Row {w.row}: {w.message}</p>))}
             <button onClick={onClose} className="w-full mt-3 px-4 py-2 text-sm text-white rounded-lg font-semibold" style={{ background: C.navy }}>Done</button>
@@ -609,19 +603,32 @@ function ManagementTable({ projects, loading }) {
     </div>);
 }
 // ── Main Dashboard ────────────────────────────────────────────────────
-export default function Dashboard({ onLogout }) {
+export default function Dashboard({ onLogout, user }) {
     const [selectedProject, setSelectedProject] = useState('');
     const [selectedYear, setSelectedYear] = useState('');
     const [selectedMonth, setSelectedMonth] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [showUpdateModal, setShowUpdateModal] = useState(false);
-    const [records, setRecords] = useState(() => loadRevenueData());
+    const [records, setRecords] = useState([]);
+    const [activeVersion, setActiveVersion] = useState(null);
+    const [dataLoading, setDataLoading] = useState(true);
+    const reloadData = async () => {
+        try {
+            const data = await loadActiveRevenueData();
+            setRecords(data.records);
+            setActiveVersion(data.version);
+        }
+        catch (error) {
+            console.error('Unable to load the active revenue version', error);
+        }
+        finally {
+            setDataLoading(false);
+        }
+    };
     useEffect(() => {
-        const reload = () => setRecords(loadRevenueData());
-        window.addEventListener(DATA_UPDATED_EVENT, reload);
-        window.addEventListener('storage', reload);
-        return () => { window.removeEventListener(DATA_UPDATED_EVENT, reload); window.removeEventListener('storage', reload); };
+        reloadData();
+        return watchActiveVersion(reloadData);
     }, []);
     const usingDateRange = !!(dateFrom || dateTo);
     const queryParams = {
@@ -632,8 +639,8 @@ export default function Dashboard({ onLogout }) {
         dateTo: dateTo || undefined,
     };
     const { summary, monthly, performance, allProjects, filteredProjects } = useMemo(() => buildDashboardData(records, queryParams), [records, selectedProject, selectedYear, selectedMonth, dateFrom, dateTo]);
-    const summaryLoading = false, monthlyLoading = false, perfLoading = false;
-    const allProjectsLoading = false, filteredLoading = false;
+    const summaryLoading = dataLoading, monthlyLoading = dataLoading, perfLoading = dataLoading;
+    const allProjectsLoading = dataLoading, filteredLoading = dataLoading;
     const availableYears = useMemo(() => {
         const years = new Set();
         for (const p of allProjects) {
@@ -674,8 +681,8 @@ export default function Dashboard({ onLogout }) {
         setDateTo('');
     };
     const hasFilters = !!(selectedProject || selectedYear || selectedMonth || dateFrom || dateTo);
-    const lastUpdated = summary?.lastDataUpdate
-        ? new Date(summary.lastDataUpdate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+    const lastUpdated = activeVersion?.published_at || activeVersion?.uploaded_at
+        ? new Date(activeVersion.published_at || activeVersion.uploaded_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
         : 'N/A';
     const reportingPeriod = usingDateRange
         ? `${dateFrom || '…'} → ${dateTo || '…'}`
@@ -715,7 +722,7 @@ export default function Dashboard({ onLogout }) {
               <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
                 Last Updated
               </p>
-              <p className="text-sm font-semibold text-white">{lastUpdated}</p>
+              <p className="text-sm font-semibold text-white">{lastUpdated}{activeVersion ? ` · V${activeVersion.version_number}` : ''}</p>
             </div>
             <button onClick={() => setShowUpdateModal(true)} className="px-4 py-2 text-xs font-semibold rounded-lg text-white transition-colors flex-shrink-0" style={{ background: C.red }} onMouseOver={e => (e.currentTarget.style.background = C.redDark)} onMouseOut={e => (e.currentTarget.style.background = C.red)}>
               Update Data
@@ -882,6 +889,6 @@ export default function Dashboard({ onLogout }) {
         ACES Managed Services Department · Project Revenue Dashboard · Confidential
       </footer>
 
-      {showUpdateModal && <UpdateDataModal onClose={() => setShowUpdateModal(false)}/>}
+      {showUpdateModal && <UpdateDataModal onClose={() => setShowUpdateModal(false)} onPublished={reloadData}/>}
     </div>);
 }
