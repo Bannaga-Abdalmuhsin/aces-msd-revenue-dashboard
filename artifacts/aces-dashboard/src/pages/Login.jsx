@@ -1,10 +1,5 @@
 import { useState } from 'react';
 import logoUrl from '@assets/MSD_Logo_1785945599981.png';
-const CREDENTIAL_HASHES = [
-    '72470eae5d1954da93d56ef47e0b2df54ff1f6a63c0e580f36da95a4a8cba97b',
-    '4a83aabdb47fad7d48e4c436f1f231336730972e83c6747356660c2d72a877db',
-    'd89512154d73d3f761a6f8b76d810ec85d27565759223b19e5ffae907519a9d9',
-];
 export default function Login({ onLogin }) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -15,20 +10,15 @@ export default function Login({ onLogin }) {
         e.preventDefault();
         setError('');
         setLoading(true);
-        setTimeout(async () => {
-            const input = new TextEncoder().encode(`${username.trim().toLowerCase()}\0${password}`);
-            const digest = await crypto.subtle.digest('SHA-256', input);
-            const key = Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
-            if (CREDENTIAL_HASHES.includes(key)) {
-                localStorage.setItem('aces_auth', JSON.stringify({ username: username.trim().toLowerCase(), ts: Date.now() }));
-                onLogin();
-            }
-            else {
-                setError('Invalid username or password. Please try again.');
-            }
+        try {
+            await onLogin(username, password);
+        }
+        catch (err) {
+            setError(err.message || 'Invalid username or password. Please try again.');
+        }
+        finally {
             setLoading(false);
-        }, 400);
-    };
+        }    };
     const fieldFocus = (e) => {
         e.target.style.borderColor = '#D9232A';
         e.target.style.boxShadow = '0 0 0 3px rgba(217,35,42,0.10)';
