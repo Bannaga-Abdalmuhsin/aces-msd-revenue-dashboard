@@ -89,13 +89,13 @@ function Section({ title, children, className = '' }) {
             border: `1px solid ${C.border}`,
             boxShadow: '0 8px 24px rgba(2,12,30,0.22)',
         }}>
-      <div className="relative overflow-hidden px-4 py-2.5 border-b flex items-center" style={{ borderColor: C.border, background: C.navy }}>
-        <h2 className="relative z-10 text-sm font-semibold text-white">{title}</h2>
-        <svg className="absolute right-0 top-0 h-full w-[96px]" viewBox="0 0 96 40" preserveAspectRatio="none" aria-hidden="true">
-          <rect width="96" height="40" fill="#FFFFFF"/>
-          <polygon points="0,0 45,0 21,40 0,40" fill={C.navy}/>
-          <polygon points="54,0 70,0 46,40 30,40" fill={C.red}/>
-          <polygon points="82,0 96,0 72,40 58,40" fill={C.red}/>
+      <div className="relative overflow-hidden px-3.5 py-1.5 border-b flex items-center" style={{ borderColor: C.border, background: C.navy }}>
+        <h2 className="relative z-10 text-[13px] leading-5 font-semibold text-white">{title}</h2>
+        <svg className="absolute right-0 top-0 h-full w-[82px]" viewBox="0 0 82 32" preserveAspectRatio="none" aria-hidden="true">
+          <rect width="82" height="32" fill="#FFFFFF"/>
+          <polygon points="0,0 38,0 18,32 0,32" fill={C.navy}/>
+          <polygon points="46,0 60,0 40,32 26,32" fill={C.red}/>
+          <polygon points="70,0 82,0 62,32 50,32" fill={C.red}/>
         </svg>
       </div>
       <div className="p-4 flex-1 min-h-0">{children}</div>
