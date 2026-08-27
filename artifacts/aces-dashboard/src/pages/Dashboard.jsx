@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Area, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
+import { Area, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 import { buildDashboardData, parseRevenueFile } from '@/lib/local-revenue-data';
 import { announceVersionPublished, loadActiveRevenueData, uploadRevenueVersion, watchActiveVersion } from '@/lib/revenue-repository';
@@ -10,6 +10,15 @@ const C = {
     canvasNavy: '#0B1F42', // Full-page executive canvas
     headerNavy: '#071831', // Deeper navigation/header layer
     navy: '#122E64', // ACES Navy — primary brand colour
+    blue: '#1769E0', // Revenue / primary data series
+    cyan: '#19B8D1', // Invoiced / secondary data series
+    teal: '#18A89B', // Collected / positive data series
+    amber: '#F4B740', // Net revenue / trend highlight
+    coral: '#F0645A', // Deductions / attention series
+    violet: '#7657D5', // Additional project distinction
+    chartPanel: '#0D2850', // Slightly dark chart surface
+    chartGrid: '#315078', // Subtle grid on dark chart surface
+    chartText: '#DCE7F6', // Chart axis and legend text
     medBlue: '#485D86', // Medium blue — Collected series
     mutedBlue: '#6F82A6', // Muted blue shade
     red: '#EF1E34', // ACES Red — negative / warnings
@@ -85,18 +94,14 @@ function KpiCard({ label, value, sub, valueColor = C.charcoal, icon, tooltip }) 
 }
 // ── Section wrapper ───────────────────────────────────────────────────
 function Section({ title, children, className = '' }) {
-    return (<div className={`bg-white rounded-lg overflow-hidden flex flex-col min-h-0 ${className}`} style={{
-            border: `1px solid ${C.border}`,
+    return (<div className={`rounded-xl overflow-hidden flex flex-col min-h-0 ${className}`} style={{
+            background: C.chartPanel,
+            border: '1px solid rgba(111,155,210,0.30)',
             boxShadow: '0 8px 24px rgba(2,12,30,0.22)',
         }}>
-      <div className="relative overflow-hidden px-3.5 py-1.5 border-b flex items-center" style={{ borderColor: C.border, background: C.navy }}>
+      <div className="relative overflow-hidden px-4 py-2.5 border-b flex items-center" style={{ borderColor: 'rgba(255,255,255,0.10)', background: C.headerNavy }}>
         <h2 className="relative z-10 text-[13px] leading-5 font-semibold text-white">{title}</h2>
-        <svg className="absolute right-0 top-0 h-full w-[82px]" viewBox="0 0 82 32" preserveAspectRatio="none" aria-hidden="true">
-          <rect width="82" height="32" fill="#FFFFFF"/>
-          <polygon points="0,0 38,0 18,32 0,32" fill={C.navy}/>
-          <polygon points="46,0 60,0 40,32 26,32" fill={C.red}/>
-          <polygon points="70,0 82,0 62,32 50,32" fill={C.red}/>
-        </svg>
+        <span className="absolute right-4 h-1.5 w-16 rounded-full" style={{ background: `linear-gradient(90deg, ${C.blue}, ${C.cyan}, ${C.amber}, ${C.red})` }}/>
       </div>
       <div className="p-4 flex-1 min-h-0">{children}</div>
     </div>);
@@ -118,6 +123,7 @@ function ChartTooltip({ active, payload, label }) {
         </div>))}
     </div>);
 }
+const PROJECT_COLORS = [C.blue, C.cyan, C.teal, C.amber, C.coral, C.violet, C.medBlue, C.red];
 // ── Update Data Modal ─────────────────────────────────────────────────
 function UpdateDataModal({ onClose, onPublished }) {
     const [file, setFile] = useState(null);
@@ -805,11 +811,11 @@ export default function Dashboard({ onLogout, user }) {
           <Section title="Revenue Trend over Time" className="dashboard-chart-card">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={monthly ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke={C.border}/>
-                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.redDark }}/>
-                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.chartGrid}/>
+                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.chartText }}/>
+                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.chartText }} width={48}/>
                 <Tooltip content={<ChartTooltip />}/>
-                <Area type="monotone" dataKey="revenue" name="Revenue" stroke={C.navy} fill={C.mutedBlue} fillOpacity={0.5} strokeWidth={2} dot={{ r: 2 }}/>
+                <Area type="monotone" dataKey="revenue" name="Revenue" stroke={C.cyan} fill={C.blue} fillOpacity={0.36} strokeWidth={2.5} dot={{ r: 2.5, fill: C.amber }}/>
               </ComposedChart>
             </ResponsiveContainer>
           </Section>
@@ -817,11 +823,13 @@ export default function Dashboard({ onLogout, user }) {
           <Section title="Project Revenue Ranking" className="dashboard-chart-card">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={projectChartData} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke={C.border} horizontal={false}/>
-                <XAxis type="number" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.redDark }}/>
-                <YAxis type="category" dataKey="project" width={92} tick={{ fontSize: 10, fill: C.slate }}/>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.chartGrid} horizontal={false}/>
+                <XAxis type="number" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.chartText }}/>
+                <YAxis type="category" dataKey="project" width={92} tick={{ fontSize: 10, fill: C.chartText }}/>
                 <Tooltip content={<ChartTooltip />}/>
-                <Bar dataKey="revenue" name="Revenue" fill={C.navy} radius={[0, 3, 3, 0]} maxBarSize={18}/>
+                <Bar dataKey="revenue" name="Revenue" radius={[0, 5, 5, 0]} maxBarSize={18}>
+                  {projectChartData.map((entry, index) => <Cell key={entry.id ?? entry.project} fill={PROJECT_COLORS[index % PROJECT_COLORS.length]}/>) }
+                </Bar>
               </ComposedChart>
             </ResponsiveContainer>
           </Section>
@@ -829,13 +837,13 @@ export default function Dashboard({ onLogout, user }) {
           <Section title="Invoiced vs Collected Monthly" className="dashboard-chart-card">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={monthly ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke={C.border}/>
-                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.redDark }}/>
-                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.chartGrid}/>
+                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.chartText }}/>
+                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.chartText }} width={48}/>
                 <Tooltip content={<ChartTooltip />}/>
                 <Legend wrapperStyle={{ fontSize: 10 }}/>
-                <Bar dataKey="invoiced" name="Invoiced" fill={C.navy} radius={[3, 3, 0, 0]} maxBarSize={18}/>
-                <Line type="monotone" dataKey="collected" name="Collected" stroke={C.red} strokeWidth={2.5} dot={{ r: 2.5, fill: C.red }}/>
+                <Bar dataKey="invoiced" name="Invoiced" fill={C.cyan} radius={[4, 4, 0, 0]} maxBarSize={18}/>
+                <Line type="monotone" dataKey="collected" name="Collected" stroke={C.amber} strokeWidth={2.5} dot={{ r: 3, fill: C.amber }}/>
               </ComposedChart>
             </ResponsiveContainer>
           </Section>
@@ -843,11 +851,13 @@ export default function Dashboard({ onLogout, user }) {
           <Section title="Net Revenue by Project" className="dashboard-chart-card">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={projectChartData} margin={{ top: 8, right: 8, left: 0, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke={C.border} vertical={false}/>
-                <XAxis dataKey="project" interval={0} angle={-25} textAnchor="end" tick={{ fontSize: 9, fill: C.redDark }}/>
-                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.chartGrid} vertical={false}/>
+                <XAxis dataKey="project" interval={0} angle={-25} textAnchor="end" tick={{ fontSize: 9, fill: C.chartText }}/>
+                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.chartText }} width={48}/>
                 <Tooltip content={<ChartTooltip />}/>
-                <Bar dataKey="netRevenue" name="Net Revenue" fill={C.navy} radius={[3, 3, 0, 0]} maxBarSize={30}/>
+                <Bar dataKey="netRevenue" name="Net Revenue" radius={[4, 4, 0, 0]} maxBarSize={30}>
+                  {projectChartData.map((entry, index) => <Cell key={entry.id ?? entry.project} fill={PROJECT_COLORS[index % PROJECT_COLORS.length]}/>) }
+                </Bar>
               </ComposedChart>
             </ResponsiveContainer>
           </Section>
@@ -855,11 +865,11 @@ export default function Dashboard({ onLogout, user }) {
           <Section title="Deductions over Time" className="dashboard-chart-card">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={monthly ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke={C.border}/>
-                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.redDark }}/>
-                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.chartGrid}/>
+                <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: C.chartText }}/>
+                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.chartText }} width={48}/>
                 <Tooltip content={<ChartTooltip />}/>
-                <Area type="monotone" dataKey="deductible" name="Deductions" stroke={C.navy} fill={C.mutedBlue} fillOpacity={0.55} strokeWidth={2}/>
+                <Area type="monotone" dataKey="deductible" name="Deductions" stroke={C.coral} fill={C.coral} fillOpacity={0.28} strokeWidth={2.5}/>
               </ComposedChart>
             </ResponsiveContainer>
           </Section>
@@ -867,13 +877,13 @@ export default function Dashboard({ onLogout, user }) {
           <Section title="Revenue vs Net Revenue by Project" className="dashboard-chart-card">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={projectChartData} margin={{ top: 8, right: 8, left: 0, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke={C.border} vertical={false}/>
-                <XAxis dataKey="project" interval={0} angle={-25} textAnchor="end" tick={{ fontSize: 9, fill: C.redDark }}/>
-                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.slate }} width={48}/>
+                <CartesianGrid strokeDasharray="2 4" stroke={C.chartGrid} vertical={false}/>
+                <XAxis dataKey="project" interval={0} angle={-25} textAnchor="end" tick={{ fontSize: 9, fill: C.chartText }}/>
+                <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.chartText }} width={48}/>
                 <Tooltip content={<ChartTooltip />}/>
                 <Legend wrapperStyle={{ fontSize: 10 }}/>
-                <Bar dataKey="revenue" name="Revenue" fill={C.mutedBlue} radius={[3, 3, 0, 0]} maxBarSize={20}/>
-                <Bar dataKey="netRevenue" name="Net Revenue" fill={C.navy} radius={[3, 3, 0, 0]} maxBarSize={20}/>
+                <Bar dataKey="revenue" name="Revenue" fill={C.blue} radius={[3, 3, 0, 0]} maxBarSize={20}/>
+                <Bar dataKey="netRevenue" name="Net Revenue" fill={C.amber} radius={[3, 3, 0, 0]} maxBarSize={20}/>
               </ComposedChart>
             </ResponsiveContainer>
           </Section>
