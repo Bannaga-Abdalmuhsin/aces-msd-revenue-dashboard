@@ -74,7 +74,29 @@ html, body, #root {
 }
 .recharts-legend-item-text {
   font-size: 11px !important;
-  color: var(--aces-charcoal) !important;
+  color: #DCE7F6 !important;
+}
+
+/* Fill the current viewport with the six primary analytics cards. */
+.dashboard-chart-grid {
+  min-height: calc(100vh - 315px);
+  grid-auto-rows: minmax(300px, 1fr);
+}
+
+.dashboard-chart-card {
+  min-height: 300px;
+}
+
+.dashboard-chart-card .recharts-cartesian-axis-line,
+.dashboard-chart-card .recharts-cartesian-axis-tick-line {
+  stroke: rgba(220, 231, 246, 0.28);
+}
+
+@media (max-width: 1535px) {
+  .dashboard-chart-grid {
+    min-height: auto;
+    grid-auto-rows: minmax(300px, 34vh);
+  }
 }
 
 /* Fill the current viewport with the six primary analytics cards. */
