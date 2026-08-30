@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Area, Bar, Cell, Line, Pie, PieChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
+import { Area, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 import { buildDashboardData, parseRevenueFile } from '@/lib/local-revenue-data';
 import { announceVersionPublished, loadActiveRevenueData, uploadRevenueVersion, watchActiveVersion } from '@/lib/revenue-repository';
@@ -126,18 +126,84 @@ function ChartTooltip({ active, payload, label }) {
     </div>);
 }
 const PROJECT_COLORS = [C.blue, C.cyan, C.teal, C.amber, C.coral, C.violet, C.medBlue, C.red];
-function ProjectPieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent, project }) {
-    if (percent < 0.03)
-        return null;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.62;
-    const angle = -midAngle * Math.PI / 180;
-    const x = cx + radius * Math.cos(angle);
-    const y = cy + radius * Math.sin(angle);
-    const label = project.length > 12 ? `${project.slice(0, 11)}…` : project;
-    return (<text x={x} y={y} fill="#FFFFFF" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>
-      <tspan x={x} dy="-0.55em" fontSize="10" fontWeight="800">{label}</tspan>
-      <tspan x={x} dy="1.35em" fontSize="15" fontWeight="800">{(percent * 100).toFixed(0)}%</tspan>
-    </text>);
+function polarPoint(cx, cy, radius, angle) {
+    const radians = (angle - 90) * Math.PI / 180;
+    return { x: cx + radius * Math.cos(radians), y: cy + radius * Math.sin(radians) };
+}
+function radialPanelPath(cx, cy, innerRadius, outerRadius, startAngle, endAngle) {
+    const outerStart = polarPoint(cx, cy, outerRadius, endAngle);
+    const outerEnd = polarPoint(cx, cy, outerRadius, startAngle);
+    const innerStart = polarPoint(cx, cy, innerRadius, startAngle);
+    const innerEnd = polarPoint(cx, cy, innerRadius, endAngle);
+    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+    return [
+        `M ${outerStart.x} ${outerStart.y}`,
+        `A ${outerRadius} ${outerRadius} 0 ${largeArc} 0 ${outerEnd.x} ${outerEnd.y}`,
+        `L ${innerStart.x} ${innerStart.y}`,
+        `A ${innerRadius} ${innerRadius} 0 ${largeArc} 1 ${innerEnd.x} ${innerEnd.y}`,
+        'Z',
+    ].join(' ');
+}
+function ProjectRevenueInfographic({ data, total }) {
+    const [hovered, setHovered] = useState(null);
+    const cx = 182, cy = 154, innerRadius = 67;
+    const extensions = [30, 12, 24, 8, 20, 14];
+    let cursor = 0;
+    const panels = data.map((item, index) => {
+        const share = total > 0 ? item.revenue / total : 0;
+        const fullAngle = share * 360;
+        const gap = Math.min(2.4, fullAngle * 0.16);
+        const startAngle = cursor + gap / 2;
+        const endAngle = cursor + fullAngle - gap / 2;
+        cursor += fullAngle;
+        const outerRadius = 116 + extensions[index % extensions.length];
+        const midAngle = (startAngle + endAngle) / 2;
+        const labelPoint = polarPoint(cx, cy, innerRadius + (outerRadius - innerRadius) * 0.61, midAngle);
+        return { ...item, share, startAngle, endAngle, outerRadius, labelPoint };
+    });
+    return (<div className="project-infographic h-full w-full">
+      <svg viewBox="0 0 610 310" className="h-full w-full" role="img" aria-label="Project revenue share infographic">
+        <defs>
+          <filter id="infographicShadow" x="-35%" y="-35%" width="170%" height="170%">
+            <feDropShadow dx="0" dy="7" stdDeviation="6" floodColor="#020C1E" floodOpacity="0.38"/>
+          </filter>
+          <linearGradient id="infographicCenter" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#FFFFFF"/>
+            <stop offset="100%" stopColor="#DDE6F2"/>
+          </linearGradient>
+        </defs>
+
+        {panels.map((panel, index) => {
+            const active = hovered === null || hovered === index;
+            const showInside = panel.share >= 0.075;
+            return (<g key={panel.project} onMouseEnter={() => setHovered(index)} onMouseLeave={() => setHovered(null)} className="project-infographic-segment" opacity={active ? 1 : 0.40}>
+              <path d={radialPanelPath(cx, cy, innerRadius, panel.outerRadius, panel.startAngle, panel.endAngle)} fill={PROJECT_COLORS[index % PROJECT_COLORS.length]} stroke={C.chartPanel} strokeWidth="3" filter="url(#infographicShadow)">
+                <title>{`${panel.project}: ${fmtSARStr(panel.revenue)} SAR (${(panel.share * 100).toFixed(1)}%)`}</title>
+              </path>
+              {showInside && <text x={panel.labelPoint.x} y={panel.labelPoint.y} textAnchor="middle" fill="#FFFFFF" pointerEvents="none">
+                <tspan x={panel.labelPoint.x} dy="-0.45em" fontSize="9" fontWeight="800">{panel.project.length > 12 ? `${panel.project.slice(0, 11)}…` : panel.project}</tspan>
+                <tspan x={panel.labelPoint.x} dy="1.35em" fontSize="16" fontWeight="900">{(panel.share * 100).toFixed(0)}%</tspan>
+              </text>}
+            </g>);
+        })}
+
+        <circle cx={cx} cy={cy + 7} r="58" fill="rgba(2,12,30,0.34)"/>
+        <circle cx={cx} cy={cy} r="58" fill="url(#infographicCenter)" stroke="#FFFFFF" strokeWidth="5" filter="url(#infographicShadow)"/>
+        <text x={cx} y={cy - 9} textAnchor="middle" fill={C.navy} fontSize="10" fontWeight="800">TOTAL REVENUE</text>
+        <text x={cx} y={cy + 17} textAnchor="middle" fill={C.headerNavy} fontSize="20" fontWeight="900">{fmtAxis(total)}</text>
+
+        <text x="376" y="24" fill="#FFFFFF" fontSize="11" fontWeight="800" letterSpacing="1">PROJECT CONTRIBUTION</text>
+        {panels.map((panel, index) => {
+            const y = 53 + index * 40;
+            return (<g key={`callout-${panel.project}`} onMouseEnter={() => setHovered(index)} onMouseLeave={() => setHovered(null)} className="project-infographic-callout" opacity={hovered === null || hovered === index ? 1 : 0.38}>
+              <circle cx="385" cy={y} r="12" fill={PROJECT_COLORS[index % PROJECT_COLORS.length]}/>
+              <text x="385" y={y + 4} textAnchor="middle" fill="#FFFFFF" fontSize="10" fontWeight="900">{index + 1}</text>
+              <text x="405" y={y - 2} fill="#FFFFFF" fontSize="10" fontWeight="800">{panel.project}</text>
+              <text x="405" y={y + 12} fill="#BFD0E8" fontSize="9" fontWeight="600">{fmtAxis(panel.revenue)} · {(panel.share * 100).toFixed(1)}%</text>
+            </g>);
+        })}
+      </svg>
+    </div>);
 }
 // ── Update Data Modal ─────────────────────────────────────────────────
 function UpdateDataModal({ onClose, onPublished }) {
@@ -845,18 +911,7 @@ export default function Dashboard({ onLogout, user }) {
           </Section>
 
           <Section title="Project Revenue Share" className="dashboard-chart-card project-pie-card">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                <Pie data={projectPieData} dataKey="revenue" nameKey="project" cx="50%" cy="50%" innerRadius="48%" outerRadius="88%" paddingAngle={3} cornerRadius={7} stroke={C.chartPanel} strokeWidth={4} labelLine={false} label={<ProjectPieLabel />}>
-                  {projectPieData.map((entry, index) => <Cell key={entry.project} fill={PROJECT_COLORS[index % PROJECT_COLORS.length]}/>) }
-                </Pie>
-                <Tooltip content={<ChartTooltip />}/>
-                <circle cx="50%" cy="50%" r="62" fill="#F4F7FB" stroke="rgba(255,255,255,0.82)" strokeWidth="4"/>
-                <circle cx="50%" cy="50%" r="54" fill="#FFFFFF" stroke="#D9DEE7" strokeWidth="1"/>
-                <text x="50%" y="47%" textAnchor="middle" fill={C.navy} fontSize="10" fontWeight="800">TOTAL REVENUE</text>
-                <text x="50%" y="54%" textAnchor="middle" fill={C.headerNavy} fontSize="17" fontWeight="800">{fmtAxis(projectPieTotal)}</text>
-              </PieChart>
-            </ResponsiveContainer>
+            <ProjectRevenueInfographic data={projectPieData} total={projectPieTotal}/>
           </Section>
 
           <Section title="Invoiced vs Collected Monthly" className="dashboard-chart-card">
