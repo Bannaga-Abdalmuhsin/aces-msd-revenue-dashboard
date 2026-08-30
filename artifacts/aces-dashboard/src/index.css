@@ -211,12 +211,7 @@ html, body, #root {
 }
 
 .project-pie-card .recharts-pie-sector {
-  filter: drop-shadow(0 5px 7px rgba(0,0,0,0.28)) drop-shadow(0 0 5px rgba(64,170,255,0.13));
-}
-
-.project-pie-card .recharts-legend-item-text {
-  color: #FFFFFF !important;
-  font-weight: 600;
+  filter: drop-shadow(0 7px 9px rgba(0,0,0,0.30)) drop-shadow(0 0 6px rgba(64,170,255,0.12));
 }
 
 .dashboard-chart-card .recharts-cartesian-axis-line,

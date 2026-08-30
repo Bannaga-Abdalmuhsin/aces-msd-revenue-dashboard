@@ -127,16 +127,16 @@ function ChartTooltip({ active, payload, label }) {
 }
 const PROJECT_COLORS = [C.blue, C.cyan, C.teal, C.amber, C.coral, C.violet, C.medBlue, C.red];
 function ProjectPieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent, project }) {
-    if (percent < 0.045)
+    if (percent < 0.03)
         return null;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.58;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.62;
     const angle = -midAngle * Math.PI / 180;
     const x = cx + radius * Math.cos(angle);
     const y = cy + radius * Math.sin(angle);
-    const label = project.length > 13 ? `${project.slice(0, 12)}…` : project;
+    const label = project.length > 12 ? `${project.slice(0, 11)}…` : project;
     return (<text x={x} y={y} fill="#FFFFFF" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>
-      <tspan x={x} dy="-0.45em" fontSize="8" fontWeight="700">{label}</tspan>
-      <tspan x={x} dy="1.35em" fontSize="12" fontWeight="800">{(percent * 100).toFixed(0)}%</tspan>
+      <tspan x={x} dy="-0.55em" fontSize="10" fontWeight="800">{label}</tspan>
+      <tspan x={x} dy="1.35em" fontSize="15" fontWeight="800">{(percent * 100).toFixed(0)}%</tspan>
     </text>);
 }
 // ── Update Data Modal ─────────────────────────────────────────────────
@@ -846,15 +846,15 @@ export default function Dashboard({ onLogout, user }) {
 
           <Section title="Project Revenue Share" className="dashboard-chart-card project-pie-card">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 8, right: 118, bottom: 8, left: 4 }}>
-                <Pie data={projectPieData} dataKey="revenue" nameKey="project" cx="43%" cy="50%" innerRadius="35%" outerRadius="78%" paddingAngle={3} cornerRadius={5} stroke={C.chartPanel} strokeWidth={3} labelLine={false} label={<ProjectPieLabel />}>
+              <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                <Pie data={projectPieData} dataKey="revenue" nameKey="project" cx="50%" cy="50%" innerRadius="48%" outerRadius="88%" paddingAngle={3} cornerRadius={7} stroke={C.chartPanel} strokeWidth={4} labelLine={false} label={<ProjectPieLabel />}>
                   {projectPieData.map((entry, index) => <Cell key={entry.project} fill={PROJECT_COLORS[index % PROJECT_COLORS.length]}/>) }
                 </Pie>
                 <Tooltip content={<ChartTooltip />}/>
-                <Legend layout="vertical" align="right" verticalAlign="middle" iconType="circle" iconSize={8} wrapperStyle={{ right: 8, width: 112, color: C.chartText, fontSize: 9, lineHeight: '19px' }}/>
-                <circle cx="43%" cy="50%" r="31" fill="#F4F7FB" stroke="rgba(255,255,255,0.7)" strokeWidth="3"/>
-                <text x="43%" y="47%" textAnchor="middle" fill={C.navy} fontSize="8" fontWeight="700">TOTAL REVENUE</text>
-                <text x="43%" y="54%" textAnchor="middle" fill={C.headerNavy} fontSize="12" fontWeight="800">{fmtAxis(projectPieTotal)}</text>
+                <circle cx="50%" cy="50%" r="62" fill="#F4F7FB" stroke="rgba(255,255,255,0.82)" strokeWidth="4"/>
+                <circle cx="50%" cy="50%" r="54" fill="#FFFFFF" stroke="#D9DEE7" strokeWidth="1"/>
+                <text x="50%" y="47%" textAnchor="middle" fill={C.navy} fontSize="10" fontWeight="800">TOTAL REVENUE</text>
+                <text x="50%" y="54%" textAnchor="middle" fill={C.headerNavy} fontSize="17" fontWeight="800">{fmtAxis(projectPieTotal)}</text>
               </PieChart>
             </ResponsiveContainer>
           </Section>
