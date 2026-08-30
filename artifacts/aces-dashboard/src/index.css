@@ -224,6 +224,85 @@ html, body, #root {
   filter: drop-shadow(0 9px 11px rgba(0,0,0,0.40)) drop-shadow(0 0 10px rgba(64,170,255,0.24));
 }
 
+/* A quick, staggered dashboard reveal. */
+@keyframes dashboard-jump-in {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.975);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.006);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes infographic-pop-in {
+  0% { transform: scale(0.72); }
+  72% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.aces-header,
+.dashboard-filter-bar,
+.kpi-card,
+.dashboard-chart-card,
+.management-summary,
+.dashboard-footer {
+  opacity: 0;
+  animation: dashboard-jump-in 560ms cubic-bezier(0.22, 0.8, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.aces-header { animation-delay: 20ms; }
+.dashboard-filter-bar { animation-delay: 85ms; }
+.kpi-card:nth-child(1) { animation-delay: 150ms; }
+.kpi-card:nth-child(2) { animation-delay: 195ms; }
+.kpi-card:nth-child(3) { animation-delay: 240ms; }
+.kpi-card:nth-child(4) { animation-delay: 285ms; }
+.kpi-card:nth-child(5) { animation-delay: 330ms; }
+.dashboard-chart-card:nth-child(1) { animation-delay: 390ms; }
+.dashboard-chart-card:nth-child(2) { animation-delay: 435ms; }
+.dashboard-chart-card:nth-child(3) { animation-delay: 480ms; }
+.dashboard-chart-card:nth-child(4) { animation-delay: 525ms; }
+.dashboard-chart-card:nth-child(5) { animation-delay: 570ms; }
+.dashboard-chart-card:nth-child(6) { animation-delay: 615ms; }
+.management-summary { animation-delay: 675ms; }
+.dashboard-footer { animation-delay: 735ms; }
+
+.project-infographic-segment,
+.project-infographic-callout {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: infographic-pop-in 480ms cubic-bezier(0.22, 0.8, 0.3, 1) backwards;
+}
+
+.project-infographic-segment:nth-of-type(1) { animation-delay: 500ms; }
+.project-infographic-segment:nth-of-type(2) { animation-delay: 550ms; }
+.project-infographic-segment:nth-of-type(3) { animation-delay: 600ms; }
+.project-infographic-segment:nth-of-type(4) { animation-delay: 650ms; }
+.project-infographic-segment:nth-of-type(5) { animation-delay: 700ms; }
+.project-infographic-segment:nth-of-type(6) { animation-delay: 750ms; }
+.project-infographic-callout { animation-delay: 790ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aces-header,
+  .dashboard-filter-bar,
+  .kpi-card,
+  .dashboard-chart-card,
+  .management-summary,
+  .dashboard-footer,
+  .project-infographic-segment,
+  .project-infographic-callout {
+    opacity: 1;
+    animation: none;
+    transform: none;
+  }
+}
+
 .dashboard-chart-card .recharts-cartesian-axis-line,
 .dashboard-chart-card .recharts-cartesian-axis-tick-line {
   stroke: #FFFFFF;

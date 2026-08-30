@@ -146,8 +146,8 @@ function radialPanelPath(cx, cy, innerRadius, outerRadius, startAngle, endAngle)
 }
 function ProjectRevenueInfographic({ data, total }) {
     const [hovered, setHovered] = useState(null);
-    const cx = 182, cy = 154, innerRadius = 67;
-    const extensions = [30, 12, 24, 8, 20, 14];
+    const cx = 194, cy = 154, innerRadius = 75;
+    const extensions = [34, 14, 27, 10, 22, 16];
     let cursor = 0;
     const panels = data.map((item, index) => {
         const share = total > 0 ? item.revenue / total : 0;
@@ -156,13 +156,13 @@ function ProjectRevenueInfographic({ data, total }) {
         const startAngle = cursor + gap / 2;
         const endAngle = cursor + fullAngle - gap / 2;
         cursor += fullAngle;
-        const outerRadius = 116 + extensions[index % extensions.length];
+        const outerRadius = 132 + extensions[index % extensions.length];
         const midAngle = (startAngle + endAngle) / 2;
         const labelPoint = polarPoint(cx, cy, innerRadius + (outerRadius - innerRadius) * 0.61, midAngle);
         return { ...item, share, startAngle, endAngle, outerRadius, labelPoint };
     });
     return (<div className="project-infographic h-full w-full">
-      <svg viewBox="0 0 610 310" className="h-full w-full" role="img" aria-label="Project revenue share infographic">
+      <svg viewBox="0 -12 610 334" className="h-full w-full" role="img" aria-label="Project revenue share infographic">
         <defs>
           <filter id="infographicShadow" x="-35%" y="-35%" width="170%" height="170%">
             <feDropShadow dx="0" dy="7" stdDeviation="6" floodColor="#020C1E" floodOpacity="0.38"/>
@@ -187,19 +187,19 @@ function ProjectRevenueInfographic({ data, total }) {
             </g>);
         })}
 
-        <circle cx={cx} cy={cy + 7} r="58" fill="rgba(2,12,30,0.34)"/>
-        <circle cx={cx} cy={cy} r="58" fill="url(#infographicCenter)" stroke="#FFFFFF" strokeWidth="5" filter="url(#infographicShadow)"/>
+        <circle cx={cx} cy={cy + 7} r="66" fill="rgba(2,12,30,0.34)"/>
+        <circle cx={cx} cy={cy} r="66" fill="url(#infographicCenter)" stroke="#FFFFFF" strokeWidth="5" filter="url(#infographicShadow)"/>
         <text x={cx} y={cy - 9} textAnchor="middle" fill={C.navy} fontSize="10" fontWeight="800">TOTAL REVENUE</text>
         <text x={cx} y={cy + 17} textAnchor="middle" fill={C.headerNavy} fontSize="20" fontWeight="900">{fmtAxis(total)}</text>
 
-        <text x="376" y="24" fill="#FFFFFF" fontSize="11" fontWeight="800" letterSpacing="1">PROJECT CONTRIBUTION</text>
+        <text x="465" y="24" fill="#FFFFFF" fontSize="11" fontWeight="800" letterSpacing="1">PROJECT CONTRIBUTION</text>
         {panels.map((panel, index) => {
             const y = 53 + index * 40;
             return (<g key={`callout-${panel.project}`} onMouseEnter={() => setHovered(index)} onMouseLeave={() => setHovered(null)} className="project-infographic-callout" opacity={hovered === null || hovered === index ? 1 : 0.38}>
-              <circle cx="385" cy={y} r="12" fill={PROJECT_COLORS[index % PROJECT_COLORS.length]}/>
-              <text x="385" y={y + 4} textAnchor="middle" fill="#FFFFFF" fontSize="10" fontWeight="900">{index + 1}</text>
-              <text x="405" y={y - 2} fill="#FFFFFF" fontSize="10" fontWeight="800">{panel.project}</text>
-              <text x="405" y={y + 12} fill="#BFD0E8" fontSize="9" fontWeight="600">{fmtAxis(panel.revenue)} · {(panel.share * 100).toFixed(1)}%</text>
+              <circle cx="475" cy={y} r="12" fill={PROJECT_COLORS[index % PROJECT_COLORS.length]}/>
+              <text x="475" y={y + 4} textAnchor="middle" fill="#FFFFFF" fontSize="10" fontWeight="900">{index + 1}</text>
+              <text x="495" y={y - 2} fill="#FFFFFF" fontSize="10" fontWeight="800">{panel.project}</text>
+              <text x="495" y={y + 12} fill="#BFD0E8" fontSize="9" fontWeight="600">{fmtAxis(panel.revenue)} · {(panel.share * 100).toFixed(1)}%</text>
             </g>);
         })}
       </svg>
@@ -517,7 +517,7 @@ function ManagementTable({ projects, loading }) {
         </div>
       </div>
     </div>);
-    return (<div className="rounded-2xl overflow-hidden" style={{ background: C.white, border: `1px solid ${C.border}`,
+    return (<div className="management-summary rounded-2xl overflow-hidden" style={{ background: C.white, border: `1px solid ${C.border}`,
             boxShadow: '0 10px 28px rgba(2,12,30,0.25)' }}>
 
       {/* ── Card header ──────────────────────────────────────────────── */}
@@ -836,7 +836,7 @@ export default function Dashboard({ onLogout, user }) {
       </header>
 
       {/* ── FILTER BAR ──────────────────────────────────────────────── */}
-      <div className="border-b bg-white px-6 py-2.5" style={{ borderColor: C.border }}>
+      <div className="dashboard-filter-bar border-b bg-white px-6 py-2.5" style={{ borderColor: C.border }}>
         <div className="w-full flex items-center gap-3 flex-wrap">
           <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.navy }}>Filters:</span>
 
@@ -975,7 +975,7 @@ export default function Dashboard({ onLogout, user }) {
       </main>
 
       {/* ── FOOTER ──────────────────────────────────────────────────── */}
-      <footer className="text-center py-4 text-[11px]" style={{ color: 'rgba(255,255,255,0.68)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <footer className="dashboard-footer text-center py-4 text-[11px]" style={{ color: 'rgba(255,255,255,0.68)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         ACES Managed Services Department · Project Revenue Dashboard · Confidential
       </footer>
 
