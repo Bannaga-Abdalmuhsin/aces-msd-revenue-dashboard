@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Area, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
+import { Area, Bar, Cell, Line, Pie, PieChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 import { buildDashboardData, parseRevenueFile } from '@/lib/local-revenue-data';
 import { announceVersionPublished, loadActiveRevenueData, uploadRevenueVersion, watchActiveVersion } from '@/lib/revenue-repository';
@@ -126,6 +126,19 @@ function ChartTooltip({ active, payload, label }) {
     </div>);
 }
 const PROJECT_COLORS = [C.blue, C.cyan, C.teal, C.amber, C.coral, C.violet, C.medBlue, C.red];
+function ProjectPieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent, project }) {
+    if (percent < 0.045)
+        return null;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.58;
+    const angle = -midAngle * Math.PI / 180;
+    const x = cx + radius * Math.cos(angle);
+    const y = cy + radius * Math.sin(angle);
+    const label = project.length > 13 ? `${project.slice(0, 12)}…` : project;
+    return (<text x={x} y={y} fill="#FFFFFF" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>
+      <tspan x={x} dy="-0.45em" fontSize="8" fontWeight="700">{label}</tspan>
+      <tspan x={x} dy="1.35em" fontSize="12" fontWeight="800">{(percent * 100).toFixed(0)}%</tspan>
+    </text>);
+}
 // ── Update Data Modal ─────────────────────────────────────────────────
 function UpdateDataModal({ onClose, onPublished }) {
     const [file, setFile] = useState(null);
@@ -673,6 +686,15 @@ export default function Dashboard({ onLogout, user }) {
         deductible: p.totalDeductible,
     }))
         .sort((a, b) => b.revenue - a.revenue), [filteredProjects]);
+    const projectPieData = useMemo(() => {
+        const positive = projectChartData.filter(item => item.revenue > 0);
+        const leading = positive.slice(0, 5);
+        const otherRevenue = positive.slice(5).reduce((sum, item) => sum + item.revenue, 0);
+        return otherRevenue > 0
+            ? [...leading, { project: 'Other Projects', revenue: otherRevenue }]
+            : leading;
+    }, [projectChartData]);
+    const projectPieTotal = useMemo(() => projectPieData.reduce((sum, item) => sum + item.revenue, 0), [projectPieData]);
     const months = [
         { val: '1', label: 'January' }, { val: '2', label: 'February' },
         { val: '3', label: 'March' }, { val: '4', label: 'April' },
@@ -822,17 +844,18 @@ export default function Dashboard({ onLogout, user }) {
             </ResponsiveContainer>
           </Section>
 
-          <Section title="Project Revenue Ranking" className="dashboard-chart-card">
+          <Section title="Project Revenue Share" className="dashboard-chart-card project-pie-card">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={projectChartData} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke={C.chartGrid} horizontal={false}/>
-                <XAxis type="number" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: C.chartText }}/>
-                <YAxis type="category" dataKey="project" width={92} tick={{ fontSize: 10, fill: C.chartText }}/>
+              <PieChart margin={{ top: 8, right: 118, bottom: 8, left: 4 }}>
+                <Pie data={projectPieData} dataKey="revenue" nameKey="project" cx="43%" cy="50%" innerRadius="35%" outerRadius="78%" paddingAngle={3} cornerRadius={5} stroke={C.chartPanel} strokeWidth={3} labelLine={false} label={<ProjectPieLabel />}>
+                  {projectPieData.map((entry, index) => <Cell key={entry.project} fill={PROJECT_COLORS[index % PROJECT_COLORS.length]}/>) }
+                </Pie>
                 <Tooltip content={<ChartTooltip />}/>
-                <Bar dataKey="revenue" name="Revenue" radius={[0, 5, 5, 0]} maxBarSize={18}>
-                  {projectChartData.map((entry, index) => <Cell key={entry.id ?? entry.project} fill={PROJECT_COLORS[index % PROJECT_COLORS.length]}/>) }
-                </Bar>
-              </ComposedChart>
+                <Legend layout="vertical" align="right" verticalAlign="middle" iconType="circle" iconSize={8} wrapperStyle={{ right: 8, width: 112, color: C.chartText, fontSize: 9, lineHeight: '19px' }}/>
+                <circle cx="43%" cy="50%" r="31" fill="#F4F7FB" stroke="rgba(255,255,255,0.7)" strokeWidth="3"/>
+                <text x="43%" y="47%" textAnchor="middle" fill={C.navy} fontSize="8" fontWeight="700">TOTAL REVENUE</text>
+                <text x="43%" y="54%" textAnchor="middle" fill={C.headerNavy} fontSize="12" fontWeight="800">{fmtAxis(projectPieTotal)}</text>
+              </PieChart>
             </ResponsiveContainer>
           </Section>
 

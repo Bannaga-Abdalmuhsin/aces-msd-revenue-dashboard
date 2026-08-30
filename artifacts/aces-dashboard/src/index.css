@@ -36,8 +36,26 @@ html, body, #root {
 
 /* ── ACES Header ─────────────────────────────────────────────────────── */
 .aces-header {
-  background: var(--aces-header-navy);
+  background:
+    radial-gradient(circle at 18% -80%, rgba(23,105,224,0.30), transparent 36%),
+    radial-gradient(circle at 78% -110%, rgba(25,184,209,0.18), transparent 34%),
+    var(--aces-header-navy) !important;
   position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(2,12,30,0.34), 0 3px 18px rgba(23,105,224,0.12);
+}
+
+.aces-header::before {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  width: 32%;
+  height: 140%;
+  top: -90%;
+  left: 34%;
+  border-radius: 50%;
+  background: rgba(55,145,255,0.14);
+  filter: blur(34px);
 }
 
 /* Navy remains visible between light content surfaces as an ACES frame. */
@@ -156,6 +174,10 @@ html, body, #root {
   min-height: 300px;
   position: relative;
   transition: border-color 180ms ease, box-shadow 180ms ease;
+  background:
+    radial-gradient(circle at 12% 4%, rgba(23,105,224,0.12), transparent 30%),
+    radial-gradient(circle at 92% 92%, rgba(25,184,209,0.07), transparent 32%),
+    #0D2850 !important;
 }
 
 .dashboard-chart-card:nth-child(1),
@@ -167,10 +189,34 @@ html, body, #root {
 .dashboard-chart-card:nth-child(2),
 .dashboard-chart-card:nth-child(5) {
   box-shadow: 0 12px 32px rgba(2,12,30,0.30), 0 0 22px rgba(25,184,209,0.10) !important;
+  background:
+    radial-gradient(circle at 88% 6%, rgba(25,184,209,0.13), transparent 31%),
+    radial-gradient(circle at 8% 94%, rgba(23,105,224,0.07), transparent 30%),
+    #0D2850 !important;
 }
 
 .dashboard-chart-card:nth-child(3) {
   box-shadow: 0 12px 32px rgba(2,12,30,0.30), 0 0 18px rgba(244,183,64,0.08) !important;
+  background:
+    radial-gradient(circle at 88% 5%, rgba(244,183,64,0.10), transparent 28%),
+    radial-gradient(circle at 8% 92%, rgba(23,105,224,0.08), transparent 30%),
+    #0D2850 !important;
+}
+
+/* The plotted data carries a restrained halo, as if lit from within. */
+.dashboard-chart-card .recharts-bar-rectangle,
+.dashboard-chart-card .recharts-area-area,
+.dashboard-chart-card .recharts-line-curve {
+  filter: drop-shadow(0 0 5px rgba(64,170,255,0.20));
+}
+
+.project-pie-card .recharts-pie-sector {
+  filter: drop-shadow(0 5px 7px rgba(0,0,0,0.28)) drop-shadow(0 0 5px rgba(64,170,255,0.13));
+}
+
+.project-pie-card .recharts-legend-item-text {
+  color: #FFFFFF !important;
+  font-weight: 600;
 }
 
 .dashboard-chart-card .recharts-cartesian-axis-line,
