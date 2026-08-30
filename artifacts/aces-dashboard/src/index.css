@@ -77,6 +77,10 @@ html, body, #root {
   color: #DCE7F6 !important;
 }
 
+.kpi-card img {
+  filter: brightness(0) invert(1) !important;
+}
+
 /* Fill the current viewport with the six primary analytics cards. */
 .dashboard-chart-grid {
   min-height: calc(100vh - 315px);
@@ -89,30 +93,18 @@ html, body, #root {
 
 .dashboard-chart-card .recharts-cartesian-axis-line,
 .dashboard-chart-card .recharts-cartesian-axis-tick-line {
-  stroke: rgba(220, 231, 246, 0.28);
+  stroke: #FFFFFF;
+  stroke-width: 1.4;
 }
 
-@media (max-width: 1535px) {
-  .dashboard-chart-grid {
-    min-height: auto;
-    grid-auto-rows: minmax(300px, 34vh);
-  }
+.dashboard-chart-card .recharts-cartesian-axis-tick-value {
+  fill: #FFFFFF !important;
+  font-weight: 700;
 }
 
-/* Fill the current viewport with the six primary analytics cards. */
-.dashboard-chart-grid {
-  min-height: calc(100vh - 315px);
-  grid-auto-rows: minmax(300px, 1fr);
-}
-
-.dashboard-chart-card {
-  min-height: 300px;
-}
-
-/* ACES dark-red X-axis treatment across all dashboard charts. */
-.dashboard-chart-card .recharts-xAxis .recharts-cartesian-axis-tick-value {
-  fill: var(--aces-red-dark) !important;
-  font-weight: 600;
+.dashboard-chart-card .recharts-cartesian-grid line {
+  stroke: rgba(255,255,255,0.28);
+  stroke-width: 1.15;
 }
 
 @media (max-width: 1535px) {

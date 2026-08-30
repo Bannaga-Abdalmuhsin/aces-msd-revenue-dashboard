@@ -17,8 +17,9 @@ const C = {
     coral: '#F0645A', // Deductions / attention series
     violet: '#7657D5', // Additional project distinction
     chartPanel: '#0D2850', // Slightly dark chart surface
-    chartGrid: '#315078', // Subtle grid on dark chart surface
-    chartText: '#DCE7F6', // Chart axis and legend text
+    chartGrid: 'rgba(255,255,255,0.28)', // White grid on dark chart surface
+    chartText: '#FFFFFF', // Bold white chart axis and legend text
+    kpiPanel: '#173A67', // Soft dark navy KPI surface
     medBlue: '#485D86', // Medium blue — Collected series
     mutedBlue: '#6F82A6', // Muted blue shade
     red: '#EF1E34', // ACES Red — negative / warnings
@@ -75,21 +76,22 @@ const Loading = () => (<div className="flex items-center justify-center h-32">
     <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${C.red} transparent ${C.red} ${C.red}` }}/>
   </div>);
 function KpiCard({ label, value, sub, valueColor = C.charcoal, icon, tooltip }) {
-    return (<div className="bg-white rounded-xl flex flex-col gap-1 p-4 min-w-0 min-h-[112px]" title={tooltip} style={{
-            border: `1px solid ${C.border}`,
-            borderLeft: `4px solid ${C.red}`,
+    return (<div className="kpi-card rounded-xl flex flex-col gap-1 p-4 min-w-0 min-h-[112px]" title={tooltip} style={{
+            background: C.kpiPanel,
+            border: '1px solid rgba(255,255,255,0.16)',
+            borderLeft: `4px solid ${valueColor}`,
             boxShadow: '0 8px 24px rgba(2,12,30,0.22)',
             cursor: tooltip ? 'help' : undefined,
         }}>
       <div className="flex items-center gap-1.5">
         {icon && <span className="flex-shrink-0 opacity-60">{icon}</span>}
-        <p className="text-[10px] font-semibold uppercase tracking-wider truncate" style={{ color: C.navy }}>{label}</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider truncate" style={{ color: '#FFFFFF' }}>{label}</p>
       </div>
       <div className="font-bold leading-tight mt-2 truncate" style={{
             color: valueColor,
             fontSize: 'clamp(1.05rem, 1.55vw, 1.65rem)',
         }}>{value}</div>
-      {sub && <div className="text-[10px] truncate" style={{ color: C.slate }}>{sub}</div>}
+      {sub && <div className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.72)' }}>{sub}</div>}
     </div>);
 }
 // ── Section wrapper ───────────────────────────────────────────────────
@@ -799,11 +801,11 @@ export default function Dashboard({ onLogout, user }) {
 
         {/* ── EXECUTIVE KPI CARDS ─────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <KpiCard label="Total Revenue (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalRevenue ?? 0}/>} valueColor={C.navy}/>
-          <KpiCard label="Total Invoiced (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalInvoiced ?? 0}/>} valueColor={C.medBlue}/>
-          <KpiCard label="Total Collected (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalCollected ?? 0}/>} valueColor={C.navy}/>
-          <KpiCard label="Total Net Revenue (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalNetRevenue ?? 0}/>} valueColor={(summary?.totalNetRevenue ?? 0) >= 0 ? C.navy : C.red}/>
-          <KpiCard label="Total Unbilled Revenue (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalUnbilled ?? 0} accounting/>} valueColor={(summary?.totalUnbilled ?? 0) !== 0 ? C.red : C.slate}/>
+          <KpiCard label="Total Revenue (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalRevenue ?? 0}/>} valueColor={C.blue}/>
+          <KpiCard label="Total Invoiced (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalInvoiced ?? 0}/>} valueColor={C.cyan}/>
+          <KpiCard label="Total Collected (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalCollected ?? 0}/>} valueColor={C.teal}/>
+          <KpiCard label="Total Net Revenue (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalNetRevenue ?? 0}/>} valueColor={(summary?.totalNetRevenue ?? 0) >= 0 ? C.amber : C.red}/>
+          <KpiCard label="Total Unbilled Revenue (SAR)" value={summaryLoading ? '…' : <RiyalAmt n={summary?.totalUnbilled ?? 0} accounting/>} valueColor={(summary?.totalUnbilled ?? 0) !== 0 ? C.coral : C.chartText}/>
         </div>
 
         {/* ── SIMPLE 3 × 2 ANALYTICS GRID ─────────────────────────── */}
