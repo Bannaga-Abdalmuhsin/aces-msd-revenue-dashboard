@@ -210,8 +210,18 @@ html, body, #root {
   filter: drop-shadow(0 0 5px rgba(64,170,255,0.20));
 }
 
-.project-pie-card .recharts-pie-sector {
-  filter: drop-shadow(0 7px 9px rgba(0,0,0,0.30)) drop-shadow(0 0 6px rgba(64,170,255,0.12));
+.project-infographic-segment,
+.project-infographic-callout {
+  cursor: pointer;
+  transition: opacity 180ms ease;
+}
+
+.project-infographic-segment path {
+  transition: filter 180ms ease;
+}
+
+.project-infographic-segment:hover path {
+  filter: drop-shadow(0 9px 11px rgba(0,0,0,0.40)) drop-shadow(0 0 10px rgba(64,170,255,0.24));
 }
 
 .dashboard-chart-card .recharts-cartesian-axis-line,
