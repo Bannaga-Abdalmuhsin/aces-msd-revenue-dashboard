@@ -187,6 +187,7 @@ function ProjectRevenueInfographic({ data, total }) {
             </g>);
         })}
 
+        <circle cx={cx} cy={cy} r={innerRadius + 1} fill={C.redDark}/>
         <circle cx={cx} cy={cy + 7} r="66" fill="rgba(2,12,30,0.34)"/>
         <circle cx={cx} cy={cy} r="66" fill="url(#infographicCenter)" stroke="#FFFFFF" strokeWidth="5" filter="url(#infographicShadow)"/>
         <text x={cx} y={cy - 9} textAnchor="middle" fill={C.navy} fontSize="10" fontWeight="800">TOTAL REVENUE</text>
