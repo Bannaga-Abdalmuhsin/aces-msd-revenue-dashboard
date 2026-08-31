@@ -14,7 +14,7 @@ Use:
 * TypeScript
 * Tailwind CSS
 * Recharts
-* PostgreSQL or the available Replit database
+* PostgreSQL or the available managed database
 * SheetJS/XLSX for Excel import
 
 Requirements:
@@ -523,4 +523,4 @@ Senior management must be able to answer immediately:
 * Which projects are achieving their targets?
 * How is performance changing month by month?
 
-Build the working application now. Do not stop after producing a plan, wireframe, explanation, or static mockup. Implement the dashboard, seed the project baselines, test the calculations, and provide a working Replit preview.
+Build the working application now. Do not stop after producing a plan, wireframe, explanation, or static mockup. Implement the dashboard, seed the project baselines, test the calculations, and provide a working deployment preview.

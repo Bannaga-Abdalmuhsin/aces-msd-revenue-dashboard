@@ -127,7 +127,7 @@ GitHub Pages cannot run:
 - Authentication sessions
 - Database imports
 
-If the dashboard depends on artifacts/api-server, keep the backend deployed on Replit or another server and configure the frontend with the public API URL.
+If the dashboard depends on artifacts/api-server, keep the backend deployed on a secure cloud server and configure the frontend with the public API URL.
 
 Do not point production API calls to localhost.
 
