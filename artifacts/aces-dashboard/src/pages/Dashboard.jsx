@@ -88,7 +88,7 @@ function KpiCard({ label, value, sub, valueColor = C.charcoal, icon, tooltip }) 
         <p className="text-[10px] font-bold uppercase tracking-wider truncate" style={{ color: '#FFFFFF' }}>{label}</p>
       </div>
       <div className="font-bold leading-tight mt-2 truncate" style={{
-            color: valueColor,
+            color: '#FFFFFF',
             fontSize: 'clamp(1.05rem, 1.55vw, 1.65rem)',
         }}>{value}</div>
       {sub && <div className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.72)' }}>{sub}</div>}
